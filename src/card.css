@@ -1,0 +1,146 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2026 Jack Tully */
+
+/* The card face (widgets/card_view.py): a user style sheet over the note type's own CSS.
+   card_view.py prefixes it with the libadwaita colours of the moment as variables:
+   --accent-color, --accent-bg-color, --card-fg-color, --dim-color, --border-color,
+   --success-color, --warning-color, --error-color and --card-font-family. A rule marked
+   !important wins over the note type's (a user sheet's !important beats an author's): the
+   stock types paint the body white and black, and here the face is the GNOME card behind
+   the view (the view is transparent), in the card's own colours, in light and in dark. */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: transparent !important;
+}
+
+/* The face fills the card; a short side sits in its middle, a long one scrolls. */
+body.card {
+  box-sizing: border-box;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: var(--card-fg-color) !important;
+  background-color: transparent !important;
+  font-family: var(--card-font-family);
+  padding: 18px 24px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  -webkit-user-select: text;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+hr#answer,
+hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 16px 0;
+}
+
+a {
+  color: var(--accent-color);
+}
+
+/* Clozes: the active one in the accent, the others dimmed. */
+.cloze {
+  font-weight: bold;
+  color: var(--accent-color) !important;
+}
+
+.cloze-inactive {
+  color: var(--dim-color) !important;
+}
+
+/* A [sound:…] tag's place: a small note mark; the page plays the file. */
+.retain-sound {
+  color: var(--dim-color);
+  font-size: 0.8em;
+  margin: 0 0.2em;
+}
+
+/* The typed answer's comparison (template.typed_answer_diff). */
+#typeans {
+  display: inline-block;
+  font-family: monospace;
+  font-size: 0.9em;
+  text-align: center;
+  padding: 0.3em 0.6em;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.typeGood {
+  color: var(--success-color);
+}
+
+.typeBad {
+  color: var(--error-color);
+  text-decoration: line-through;
+}
+
+.typeMissed {
+  color: var(--warning-color);
+}
+
+#typearrow {
+  color: var(--dim-color);
+}
+
+/* Image occlusion: the shapes are divs card_view.py's script lays over the image. */
+#image-occlusion-container {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+#image-occlusion-container img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#image-occlusion-canvas {
+  display: none;
+}
+
+.retain-occlusion {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 4px;
+  pointer-events: none;
+  transform-origin: top left;
+}
+
+.retain-occlusion.ellipse {
+  border-radius: 50%;
+}
+
+.retain-occlusion.masked {
+  background: var(--accent-bg-color);
+}
+
+.retain-occlusion.masked.inactive {
+  background: var(--occlusion-inactive-color);
+}
+
+.retain-occlusion.outlined {
+  border: 2px solid var(--accent-bg-color);
+}
+
+.retain-occlusion.outlined.inactive {
+  border-color: var(--occlusion-inactive-color);
+}
+
+.retain-occlusion.label {
+  color: var(--card-fg-color);
+  font-weight: bold;
+  white-space: nowrap;
+}

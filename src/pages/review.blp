@@ -1,0 +1,385 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+// The review page (pages/review.py): the deck's name and the remaining counts in the header,
+// the card face in a clamp, Show Answer or the four answer buttons in the bottom bar. No
+// tag: a custom session pushes a second review page over the first.
+template $RetainReviewPage: Adw.NavigationPage {
+  child: Adw.BreakpointBin {
+    width-request: 360;
+    height-request: 200;
+
+    // A phone's width: the answer buttons go two a line (each too wide for three to fit),
+    // and the card's margins narrow.
+    Adw.Breakpoint {
+      condition ("max-width: 480sp")
+
+      setters {
+        again_button.width-request: 130;
+        hard_button.width-request: 130;
+        good_button.width-request: 130;
+        easy_button.width-request: 130;
+        content_box.margin-start: 12;
+        content_box.margin-end: 12;
+        bottom_bar.margin-start: 12;
+        bottom_bar.margin-end: 12;
+      }
+    }
+
+    child: Adw.ToolbarView toolbar_view {
+      [top]
+      Adw.HeaderBar header_bar {
+        title-widget: Box {
+          orientation: vertical;
+          valign: center;
+
+          Label title_label {
+            ellipsize: end;
+            single-line-mode: true;
+
+            styles [
+              "title",
+            ]
+          }
+
+          $RetainCounts counts {}
+        };
+
+        [end]
+        MenuButton more_button {
+          icon-name: "view-more-symbolic";
+          menu-model: more_menu;
+          tooltip-text: _("More Options");
+        }
+
+        [end]
+        MenuButton flag_button {
+          icon-name: "emoji-flags-symbolic";
+          menu-model: flag_menu;
+          tooltip-text: _("Flag Card");
+        }
+      }
+
+      content: Stack content_stack {
+        StackPage {
+          name: "study";
+
+          child: ScrolledWindow {
+            hscrollbar-policy: never;
+
+            child: Adw.Clamp {
+              maximum-size: 760;
+              tightening-threshold: 600;
+
+              child: Box content_box {
+                orientation: vertical;
+                spacing: 12;
+                margin-top: 18;
+                margin-bottom: 18;
+                margin-start: 24;
+                margin-end: 24;
+
+                Adw.Bin card_bin {
+                  vexpand: true;
+                  height-request: 200;
+
+                  styles [
+                    "card",
+                    "review-card",
+                  ]
+
+                  child: $RetainCardView card_view {};
+                }
+
+                // Shown for a {{type:…}} card until the answer is: Enter shows it.
+                Entry type_entry {
+                  visible: false;
+                  placeholder-text: _("Type the answer");
+                  input-hints: no_spellcheck;
+                }
+              };
+            };
+          };
+        }
+
+        StackPage {
+          name: "finished";
+
+          child: Adw.StatusPage finished_page {
+            icon-name: "object-select-symbolic";
+            title: _("Congratulations");
+            description: _("You have finished this deck for today.");
+
+            child: Button study_more_button {
+              label: _("Study More…");
+              halign: center;
+              action-name: "review.study-more";
+
+              styles [
+                "pill",
+                "suggested-action",
+              ]
+            };
+          };
+        }
+      };
+
+      [bottom]
+      Adw.Clamp {
+        maximum-size: 760;
+        tightening-threshold: 600;
+
+        child: Box bottom_bar {
+          margin-top: 12;
+          margin-bottom: 12;
+          margin-start: 24;
+          margin-end: 24;
+
+          Stack answer_stack {
+            hexpand: true;
+            vhomogeneous: false;
+
+            StackPage {
+              name: "show";
+
+              child: Button show_answer_button {
+                label: _("Show Answer");
+                halign: center;
+                valign: center;
+                action-name: "review.show-answer";
+
+                styles [
+                  "pill",
+                  "suggested-action",
+                ]
+              };
+            }
+
+            StackPage {
+              name: "rate";
+
+              // The four buttons share the line; justify fill gives them the same width
+              // (their natural widths are equal). Good is the one coloured button.
+              child: Adw.WrapBox answers_box {
+                child-spacing: 12;
+                line-spacing: 12;
+                justify: fill;
+                justify-last-line: true;
+                align: 0.5;
+
+                Button again_button {
+                  width-request: 96;
+                  action-name: "review.rate";
+                  action-target: "1";
+
+                  styles [
+                    "pill",
+                    "answer-button",
+                  ]
+
+                  child: Box {
+                    orientation: vertical;
+
+                    Label {
+                      label: _("Again");
+                    }
+
+                    Label again_interval {
+                      styles [
+                        "caption",
+                        "dimmed",
+                        "interval",
+                      ]
+                    }
+                  };
+                }
+
+                Button hard_button {
+                  width-request: 96;
+                  action-name: "review.rate";
+                  action-target: "2";
+
+                  styles [
+                    "pill",
+                    "answer-button",
+                  ]
+
+                  child: Box {
+                    orientation: vertical;
+
+                    Label {
+                      label: _("Hard");
+                    }
+
+                    Label hard_interval {
+                      styles [
+                        "caption",
+                        "dimmed",
+                        "interval",
+                      ]
+                    }
+                  };
+                }
+
+                Button good_button {
+                  width-request: 96;
+                  action-name: "review.rate";
+                  action-target: "3";
+
+                  styles [
+                    "pill",
+                    "suggested-action",
+                    "answer-button",
+                  ]
+
+                  child: Box {
+                    orientation: vertical;
+
+                    Label {
+                      label: _("Good");
+                    }
+
+                    Label good_interval {
+                      styles [
+                        "caption",
+                        "dimmed",
+                        "interval",
+                      ]
+                    }
+                  };
+                }
+
+                Button easy_button {
+                  width-request: 96;
+                  action-name: "review.rate";
+                  action-target: "4";
+
+                  styles [
+                    "pill",
+                    "answer-button",
+                  ]
+
+                  child: Box {
+                    orientation: vertical;
+
+                    Label {
+                      label: _("Easy");
+                    }
+
+                    Label easy_interval {
+                      styles [
+                        "caption",
+                        "dimmed",
+                        "interval",
+                      ]
+                    }
+                  };
+                }
+              };
+            }
+          }
+        };
+      }
+    };
+  };
+}
+
+menu flag_menu {
+  section {
+    item {
+      label: _("Red");
+      action: "review.flag";
+      target: "1";
+    }
+
+    item {
+      label: _("Orange");
+      action: "review.flag";
+      target: "2";
+    }
+
+    item {
+      label: _("Green");
+      action: "review.flag";
+      target: "3";
+    }
+
+    item {
+      label: _("Blue");
+      action: "review.flag";
+      target: "4";
+    }
+
+    item {
+      label: _("Pink");
+      action: "review.flag";
+      target: "5";
+    }
+
+    item {
+      label: _("Turquoise");
+      action: "review.flag";
+      target: "6";
+    }
+
+    item {
+      label: _("Purple");
+      action: "review.flag";
+      target: "7";
+    }
+  }
+
+  section {
+    item {
+      label: _("Remove Flag");
+      action: "review.flag";
+      target: "0";
+    }
+  }
+}
+
+menu more_menu {
+  section {
+    item {
+      label: _("_Edit Note");
+      action: "review.edit";
+    }
+
+    item {
+      label: _("Card _Information…");
+      action: "review.info";
+    }
+  }
+
+  section {
+    item {
+      label: _("_Mark Note");
+      action: "review.mark";
+    }
+
+    item {
+      label: _("_Suspend Card");
+      action: "review.suspend";
+    }
+
+    item {
+      label: _("_Bury Card");
+      action: "review.bury";
+    }
+
+    item {
+      label: _("_Replay Sound");
+      action: "review.replay";
+    }
+  }
+
+  section {
+    item {
+      label: _("_Delete Note");
+      action: "review.delete";
+    }
+  }
+}

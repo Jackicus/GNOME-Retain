@@ -1,0 +1,250 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+// A deck's page: its counts, Study Now, its description, subdecks and options
+// (pages/deck.py). The More menu's win.deck-* actions act on this page's deck.
+template $RetainDeckPage: Adw.NavigationPage {
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      [end]
+      MenuButton {
+        icon-name: "view-more-symbolic";
+        menu-model: deck_menu;
+        tooltip-text: _("More");
+        primary: false;
+      }
+    }
+
+    content: ScrolledWindow {
+      hscrollbar-policy: never;
+
+      child: Adw.Clamp {
+        maximum-size: 720;
+        tightening-threshold: 560;
+
+        child: Box {
+          orientation: vertical;
+          spacing: 24;
+          margin-top: 24;
+          margin-bottom: 24;
+          margin-start: 18;
+          margin-end: 18;
+
+          Label path_label {
+            visible: false;
+            ellipsize: middle;
+            justify: center;
+
+            styles [
+              "caption",
+              "dimmed",
+            ]
+          }
+
+          // The three counts, big.
+          Box counts_box {
+            homogeneous: true;
+            spacing: 12;
+
+            Box {
+              orientation: vertical;
+              spacing: 3;
+
+              Label new_label {
+                label: "0";
+
+                styles [
+                  "title-1",
+                  "numeric",
+                  "count-new",
+                ]
+              }
+
+              Label {
+                label: _("New");
+                ellipsize: end;
+
+                styles [
+                  "caption",
+                  "dimmed",
+                ]
+              }
+            }
+
+            Box {
+              orientation: vertical;
+              spacing: 3;
+
+              Label learning_label {
+                label: "0";
+
+                styles [
+                  "title-1",
+                  "numeric",
+                  "count-learning",
+                ]
+              }
+
+              Label {
+                label: _("Learning");
+                ellipsize: end;
+
+                styles [
+                  "caption",
+                  "dimmed",
+                ]
+              }
+            }
+
+            Box {
+              orientation: vertical;
+              spacing: 3;
+
+              Label due_label {
+                label: "0";
+
+                styles [
+                  "title-1",
+                  "numeric",
+                  "count-due",
+                ]
+              }
+
+              Label {
+                label: _("To Review");
+                ellipsize: end;
+
+                styles [
+                  "caption",
+                  "dimmed",
+                ]
+              }
+            }
+          }
+
+          Box {
+            orientation: vertical;
+            spacing: 12;
+            halign: center;
+
+            Label nothing_label {
+              label: _("Nothing due today");
+              visible: false;
+
+              styles [
+                "dimmed",
+              ]
+            }
+
+            Button study_button {
+              label: _("_Study Now");
+              use-underline: true;
+              halign: center;
+
+              styles [
+                "pill",
+                "suggested-action",
+              ]
+            }
+
+            Button more_button {
+              label: _("Study _More…");
+              use-underline: true;
+              halign: center;
+
+              styles [
+                "pill",
+                "flat",
+              ]
+            }
+          }
+
+          Box description_card {
+            visible: false;
+            orientation: vertical;
+
+            styles [
+              "card",
+              "deck-description",
+            ]
+
+            Label description_label {
+              wrap: true;
+              xalign: 0;
+              selectable: true;
+            }
+          }
+
+          Adw.PreferencesGroup subdecks_group {
+            title: _("Subdecks");
+            visible: false;
+
+            ListBox subdecks_list {
+              selection-mode: none;
+
+              styles [
+                "boxed-list",
+              ]
+            }
+          }
+
+          Adw.PreferencesGroup {
+            Adw.ActionRow options_row {
+              title: _("Options");
+              activatable: true;
+              use-markup: false;
+
+              [suffix]
+              Image {
+                icon-name: "go-next-symbolic";
+                accessible-role: presentation;
+              }
+            }
+          }
+        };
+      };
+    };
+  };
+}
+
+menu deck_menu {
+  section {
+    item {
+      label: _("_Rename…");
+      action: "win.deck-rename";
+    }
+
+    item {
+      label: _("_Options…");
+      action: "win.deck-options";
+    }
+
+    item {
+      label: _("Edit _Description…");
+      action: "deck.edit-description";
+    }
+
+    item {
+      label: _("_Export…");
+      action: "win.deck-export";
+    }
+  }
+
+  section {
+    item {
+      label: _("_Unbury Cards");
+      action: "deck.unbury";
+    }
+  }
+
+  section {
+    item {
+      label: _("_Delete…");
+      action: "win.deck-delete";
+    }
+  }
+}

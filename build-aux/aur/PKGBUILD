@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: 2026 Jack Tully
+# Maintainer: Jack Tully
+
+pkgname=retain
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Flashcards with spaced repetition for GNOME; opens Anki decks'
+arch=('any')
+url='https://github.com/Jackicus/GNOME-Retain'
+license=('GPL-2.0-or-later')
+depends=('python' 'python-gobject' 'gtk4' 'libadwaita' 'webkitgtk-6.0' 'gst-plugins-base'
+         'gst-plugins-good' 'glib2' 'hicolor-icon-theme')
+makedepends=('meson' 'blueprint-compiler' 'gettext' 'appstream' 'desktop-file-utils')
+checkdepends=('python-gobject')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  arch-meson "GNOME-Retain-$pkgver" build
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --print-errorlogs --no-suite unit
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+}

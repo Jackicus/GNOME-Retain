@@ -1,0 +1,13 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["build", "subprojects"]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, the quote style (single quotes; docstrings and other multi-line
+# strings in double), bugbear and pyupgrade.
+select = ["E", "F", "W", "Q", "B", "UP"]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+

@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: 2026 Jack Tully
+
+option('profile', type: 'combo', choices: ['default', 'development'], value: 'default',
+       description: 'The development profile installs as io.github.jackicus.Retain.Devel')

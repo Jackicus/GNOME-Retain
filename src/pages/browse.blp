@@ -1,0 +1,389 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+template $RetainBrowsePage: Adw.NavigationPage {
+  title: _("Browse");
+  tag: "browse";
+
+  child: Adw.BreakpointBin {
+    width-request: 360;
+    height-request: 200;
+
+    // Narrow: the search entry has the first row to itself, the mode and the filter sit
+    // under it, and the table keeps Sort Field, Card, Due and Difficulty (336 px).
+    Adw.Breakpoint {
+      condition ("max-width: 600sp")
+
+      setters {
+        controls.orientation: vertical;
+        mode_row.halign: start;
+        sort_column.fixed-width: 96;
+        difficulty_column.fixed-width: 72;
+        deck_column.visible: false;
+        interval_column.visible: false;
+        reviews_column.visible: false;
+        lapses_column.visible: false;
+        tags_column.visible: false;
+      }
+    }
+
+    child: Adw.ToolbarView toolbar_view {
+      [top]
+      Adw.HeaderBar {
+        show-title: false;
+      }
+
+      // The search, the mode and the quick filters, with the count under them.
+      [top]
+      Box {
+        orientation: vertical;
+        spacing: 6;
+        margin-start: 12;
+        margin-end: 12;
+        margin-top: 6;
+        margin-bottom: 6;
+
+        Box controls {
+          spacing: 6;
+
+          SearchEntry search_entry {
+            hexpand: true;
+            placeholder-text: _("Search cards: deck:Spanish is:due tag:verbs …");
+            search-delay: 300;
+            search-changed => $on_search_changed();
+            activate => $on_search_activate();
+            stop-search => $on_stop_search();
+
+            accessibility {
+              label: _("Search Cards");
+            }
+          }
+
+          Box mode_row {
+            spacing: 6;
+
+            Adw.ToggleGroup mode_group {
+              valign: center;
+              notify::active-name => $on_mode_changed();
+
+              Adw.Toggle {
+                name: "cards";
+                label: _("Cards");
+              }
+
+              Adw.Toggle {
+                name: "notes";
+                label: _("Notes");
+              }
+            }
+
+            // The quick filters: terms appended to the query (browse.py fills the menu as it
+            // opens, the decks and tags being the collection's).
+            MenuButton filter_button {
+              label: _("Filter");
+              always-show-arrow: true;
+              valign: center;
+              tooltip-text: _("Add a Filter");
+            }
+          }
+        }
+
+        Label count_label {
+          xalign: 0;
+          ellipsize: end;
+
+          styles [
+            "caption",
+            "dimmed",
+          ]
+        }
+      }
+
+      // A query that cannot be read, and a result cut at the limit.
+      [top]
+      Adw.Banner error_banner {}
+
+      [top]
+      Adw.Banner limit_banner {
+        title: _("Showing the first 5,000 cards; refine the search");
+      }
+
+      content: Stack stack {
+        StackPage {
+          name: "table";
+
+          // The columns' widths are fixed (and shared out as the table grows), so that
+          // rows rebound while scrolling never move the dividers: 740 px in all, the
+          // content's width of a 1000 px window beside the sidebar; at 360 px the
+          // narrow set above fits. A narrower table scrolls sideways.
+          child: ScrolledWindow {
+            child: ColumnView column_view {
+              tab-behavior: item;
+              activate => $on_row_activated();
+
+              styles [
+                "data-table",
+              ]
+
+              ColumnViewColumn sort_column {
+                title: _("Sort Field");
+                fixed-width: 110;
+                expand: true;
+                resizable: true;
+              }
+
+              ColumnViewColumn card_column {
+                title: _("Card");
+                fixed-width: 64;
+                resizable: true;
+              }
+
+              ColumnViewColumn deck_column {
+                title: _("Deck");
+                fixed-width: 96;
+                expand: true;
+                resizable: true;
+              }
+
+              ColumnViewColumn due_column {
+                title: _("Due");
+                fixed-width: 110;
+                resizable: true;
+              }
+
+              ColumnViewColumn interval_column {
+                title: _("Interval");
+                fixed-width: 92;
+                resizable: true;
+              }
+
+              ColumnViewColumn difficulty_column {
+                title: _("Difficulty");
+                fixed-width: 72;
+              }
+
+              ColumnViewColumn reviews_column {
+                title: _("Reviews");
+                fixed-width: 66;
+              }
+
+              ColumnViewColumn lapses_column {
+                title: _("Lapses");
+                fixed-width: 58;
+              }
+
+              ColumnViewColumn tags_column {
+                title: _("Tags");
+                fixed-width: 72;
+                expand: true;
+                resizable: true;
+              }
+            };
+          };
+        }
+
+        StackPage {
+          name: "no-results";
+
+          child: Adw.StatusPage no_results_page {
+            icon-name: "edit-find-symbolic";
+            title: _("No Cards Found");
+            description: _("Try another search.");
+          };
+        }
+
+        StackPage {
+          name: "no-cards";
+
+          child: Adw.StatusPage {
+            icon-name: "folder-symbolic";
+            title: _("No Cards Yet");
+            description: _("Cards you add appear here, ready to search.");
+
+            child: Button {
+              label: _("Add Cards");
+              action-name: "app.add";
+              halign: center;
+
+              styles [
+                "pill",
+                "suggested-action",
+              ]
+            };
+          };
+        }
+      };
+
+      // What the selection can have done to it; the rest is in the More menu, which the
+      // rows' context menu shows as well.
+      [bottom]
+      ActionBar selection_bar {
+        revealed: false;
+
+        [start]
+        Label selection_label {
+          xalign: 0;
+          ellipsize: end;
+          margin-start: 6;
+
+          styles [
+            "heading",
+          ]
+        }
+
+        [end]
+        MenuButton more_button {
+          icon-name: "view-more-symbolic";
+          menu-model: card_menu;
+          tooltip-text: _("More Actions");
+        }
+
+        [end]
+        Button {
+          icon-name: "user-trash-symbolic";
+          action-name: "browse.delete";
+          tooltip-text: _("Delete Notes");
+        }
+
+        [end]
+        Button suspend_button {
+          label: _("Suspend");
+          action-name: "browse.toggle-suspend";
+        }
+
+        [end]
+        Button {
+          label: _("Edit");
+          action-name: "browse.edit";
+        }
+      }
+    };
+  };
+}
+
+// The actions on the selected cards: the More button's menu and the rows' context menu.
+menu card_menu {
+  section {
+    item {
+      label: _("_Edit");
+      action: "browse.edit";
+    }
+
+    item {
+      label: _("Change _Deck…");
+      action: "browse.change-deck";
+    }
+  }
+
+  section {
+    item {
+      label: _("_Suspend");
+      action: "browse.suspend";
+      hidden-when: "action-disabled";
+    }
+
+    item {
+      label: _("Un_suspend");
+      action: "browse.unsuspend";
+      hidden-when: "action-disabled";
+    }
+
+    item {
+      label: _("_Mark");
+      action: "browse.mark";
+      hidden-when: "action-disabled";
+    }
+
+    item {
+      label: _("Un_mark");
+      action: "browse.unmark";
+      hidden-when: "action-disabled";
+    }
+
+    submenu {
+      label: _("_Flag");
+
+      item {
+        label: _("No Flag");
+        action: "browse.flag";
+        target: "0";
+      }
+
+      item {
+        label: _("Red");
+        action: "browse.flag";
+        target: "1";
+      }
+
+      item {
+        label: _("Orange");
+        action: "browse.flag";
+        target: "2";
+      }
+
+      item {
+        label: _("Green");
+        action: "browse.flag";
+        target: "3";
+      }
+
+      item {
+        label: _("Blue");
+        action: "browse.flag";
+        target: "4";
+      }
+
+      item {
+        label: _("Pink");
+        action: "browse.flag";
+        target: "5";
+      }
+
+      item {
+        label: _("Turquoise");
+        action: "browse.flag";
+        target: "6";
+      }
+
+      item {
+        label: _("Purple");
+        action: "browse.flag";
+        target: "7";
+      }
+    }
+  }
+
+  section {
+    item {
+      label: _("Add _Tags…");
+      action: "browse.add-tags";
+    }
+
+    item {
+      label: _("Remove Tags…");
+      action: "browse.remove-tags";
+    }
+  }
+
+  section {
+    item {
+      label: _("_Reset");
+      action: "browse.reset";
+    }
+
+    item {
+      label: _("Set Due Date…");
+      action: "browse.set-due";
+    }
+  }
+
+  section {
+    item {
+      label: _("Delete Notes");
+      action: "browse.delete";
+    }
+  }
+}

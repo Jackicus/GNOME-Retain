@@ -1,0 +1,110 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2026 Jack Tully */
+
+/* The sidebar's deck counts (sidebar.py): the three numbers sit tight and a little dim
+   until the row is selected. */
+.deck-counts label {
+  font-weight: bold;
+}
+
+/* The review page (pages/review.blp): the card face is a card. */
+.review-card {
+  min-height: 120px;
+}
+
+/* The three count labels in a page's header (new, learning, due). */
+.count-new {
+  color: var(--accent-color);
+}
+
+.count-learning {
+  color: var(--warning-color);
+}
+
+.count-due {
+  color: var(--success-color);
+}
+
+/* The note editor (dialogs/add_edit.py): each field's text view sits in a frame. */
+.field-editor {
+  border-radius: 6px;
+  padding: 6px;
+}
+
+/* The browser (pages/browse.py): a flagged card's dot before its sort field, in the GNOME
+   palette's colours for schema.FLAG_NAMES (the only colours of the app's own: a flag is a
+   colour), and a marked note's star. */
+.browse-flag {
+  font-size: 0.8em;
+}
+
+.browse-star {
+  color: var(--warning-color);
+}
+
+.flag-1 { color: #e01b24; }  /* red */
+.flag-2 { color: #ff7800; }  /* orange */
+.flag-3 { color: #2ec27e; }  /* green */
+.flag-4 { color: #3584e4; }  /* blue */
+.flag-5 { color: #e5497a; }  /* pink */
+.flag-6 { color: #2190a4; }  /* turquoise */
+.flag-7 { color: #9141ac; }  /* purple */
+
+/* The Statistics page (pages/stats.py): each section's card has room around its chart,
+   and a tile is a small card with a number over its caption. */
+.stats-card {
+  padding: 18px;
+}
+
+.stats-tile {
+  padding: 12px 15px;
+  min-width: 96px;
+}
+
+/* The Today page's hero card and a deck page's description card (pages/today.py,
+   pages/deck.py): a card has no padding of its own. */
+.today-hero,
+.deck-description {
+  padding: 24px;
+}
+
+/* The note editor's fields (widgets/field_editor.py): a text view framed like an entry,
+   the accent on its border while it has the focus, and 32 px toolbar buttons. */
+textview.field-editor {
+  background-color: var(--view-bg-color);
+  border: 1px solid var(--border-color);
+}
+
+textview.field-editor:focus-within {
+  border-color: var(--accent-bg-color);
+}
+
+.field-editor-toolbar button {
+  min-width: 24px;
+  min-height: 24px;
+  padding: 4px;
+}
+
+.sound-chip {
+  min-height: 24px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* The review page's answer buttons (pages/review.blp): pills of one width (the .blp's
+   width-request), the interval under the word; a pill's 32 px sides would make four of them
+   too wide for the clamp and for a 480 px window. */
+.answer-button {
+  min-width: 0;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.answer-button .interval {
+  opacity: 0.7;
+}
+
+/* The counts under the deck's name in the review page's header (widgets/counts.py). */
+.review-counts {
+  margin-top: -2px;
+}

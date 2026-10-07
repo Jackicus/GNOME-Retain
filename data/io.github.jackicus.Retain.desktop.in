@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=Retain@NAME_SUFFIX@
+Comment=Learn anything with flashcards that come back just before you forget
+Exec=retain %F
+Icon=@APP_ID@
+Terminal=false
+Type=Application
+Categories=Education;GTK;GNOME;
+# Translators: Search terms to find this application. Do NOT translate or localize the semicolons.
+Keywords=flashcards;anki;spaced repetition;study;learn;memorize;memorise;cards;decks;revision;srs;fsrs;
+MimeType=application/x-anki-package;application/x-anki-collection-package;
+StartupNotify=true
+DBusActivatable=false
+X-Purism-FormFactor=Workstation;Mobile;

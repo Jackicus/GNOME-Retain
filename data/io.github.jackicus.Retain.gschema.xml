@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="retain">
+  <schema id="io.github.jackicus.Retain" path="/io/github/jackicus/Retain/">
+    <key name="window-width" type="i">
+      <default>1000</default>
+      <summary>Window width</summary>
+    </key>
+    <key name="window-height" type="i">
+      <default>720</default>
+      <summary>Window height</summary>
+    </key>
+    <key name="window-maximized" type="b">
+      <default>false</default>
+      <summary>Whether the window is maximized</summary>
+    </key>
+    <key name="last-page" type="s">
+      <default>'today'</default>
+      <summary>Last page shown</summary>
+      <description>The sidebar item selected when the window closed: "today", "browse", "stats", or "deck:ID" for one of the decks.</description>
+    </key>
+    <key name="show-remaining" type="b">
+      <default>true</default>
+      <summary>Show remaining counts while reviewing</summary>
+      <description>Whether the review page's header shows how many new, learning and due cards are left in the session.</description>
+    </key>
+    <key name="show-intervals" type="b">
+      <default>true</default>
+      <summary>Show the next interval on each answer button</summary>
+    </key>
+    <key name="auto-play-audio" type="b">
+      <default>true</default>
+      <summary>Play a card's sound when it is shown</summary>
+    </key>
+    <key name="two-button-mode" type="b">
+      <default>false</default>
+      <summary>Answer with Again and Good only</summary>
+      <description>Whether the review page offers only Again and Good, keeping the grading simple; Hard and Easy stay reachable from the keyboard.</description>
+    </key>
+    <key name="card-text-scale" type="d">
+      <range min="0.5" max="3.0"/>
+      <default>1.0</default>
+      <summary>Text size of the card face</summary>
+      <description>A factor on the card's font size: 1.0 is the card's own size, 1.5 half again as large.</description>
+    </key>
+    <key name="day-start-hour" type="i">
+      <range min="0" max="23"/>
+      <default>4</default>
+      <summary>Hour at which a new day starts</summary>
+      <description>Cards due today are those due before this hour of the next day, so a late-night session still belongs to the day it started in.</description>
+    </key>
+    <key name="learn-ahead-minutes" type="i">
+      <range min="0" max="1440"/>
+      <default>20</default>
+      <summary>Minutes a learning card may be shown early</summary>
+      <description>When nothing else is due, a card in learning whose step ends within this many minutes is shown rather than making you wait.</description>
+    </key>
+  </schema>
+</schemalist>

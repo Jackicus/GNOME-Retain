@@ -1,0 +1,38 @@
+{
+  "x-comment": [
+    "Development only: GNOME Builder or flatpak-builder run the .Devel build from this tree.",
+    "The GNOME 50 runtime ships WebKitGTK 6.0 and GStreamer. Written without a GNOME 50",
+    "runtime or flatpak-builder to test it on: not built yet."
+  ],
+  "id": "io.github.jackicus.Retain.Devel",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "50",
+  "sdk": "org.gnome.Sdk",
+  "command": "retain",
+  "finish-args": [
+    "--share=ipc",
+    "--socket=fallback-x11",
+    "--socket=wayland",
+    "--socket=pulseaudio",
+    "--device=dri"
+  ],
+  "cleanup": ["/include", "/lib/pkgconfig", "/share/pkgconfig", "*.la", "*.a"],
+  "modules": [
+    {
+      "name": "blueprint-compiler",
+      "buildsystem": "meson",
+      "cleanup": ["*"],
+      "sources": [
+        {"type": "git", "url": "https://gitlab.gnome.org/GNOME/blueprint-compiler.git",
+         "tag": "v0.22.2"}
+      ]
+    },
+    {
+      "name": "retain",
+      "builddir": true,
+      "buildsystem": "meson",
+      "config-opts": ["-Dprofile=development"],
+      "sources": [{"type": "dir", "path": "../.."}]
+    }
+  ]
+}

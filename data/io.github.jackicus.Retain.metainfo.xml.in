@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>@APP_ID@</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0-or-later</project_license>
+
+  <name>Retain@NAME_SUFFIX@</name>
+  <summary>Flashcards that come back just before you forget</summary>
+  <description>
+    <p>
+      Retain is a flashcard app for GNOME. Write a question and an answer, or a sentence
+      with a gap in it, and Retain shows the card again just before you would forget it,
+      using the FSRS algorithm: a few minutes of review a day keeps thousands of facts.
+    </p>
+    <p>
+      It opens Anki decks (.apkg files), including the ones shared by other learners, with
+      their pictures, sounds, scheduling and progress, and exports decks Anki can open.
+    </p>
+    <ul>
+      <li>Decks, nested as deep as you like, with new, learning and due counts</li>
+      <li>Basic, reversed, type-in-the-answer, cloze and image occlusion cards</li>
+      <li>Review with the keyboard: Space to turn the card, 1 to 4 to grade it</li>
+      <li>Undo anything, from a grade to a deleted deck</li>
+      <li>Statistics: a review heatmap, what is due ahead, retention and card counts</li>
+      <li>Search across every card, with Anki's search syntax</li>
+    </ul>
+  </description>
+
+  <developer id="io.github.jackicus">
+    <name translate="no">Jack Tully</name>
+  </developer>
+
+  <launchable type="desktop-id">@APP_ID@.desktop</launchable>
+  <url type="homepage">https://github.com/Jackicus/GNOME-Retain</url>
+  <url type="bugtracker">https://github.com/Jackicus/GNOME-Retain/issues</url>
+  <url type="help">https://github.com/Jackicus/GNOME-Retain/blob/main/docs/user-guide.md</url>
+  <url type="vcs-browser">https://github.com/Jackicus/GNOME-Retain</url>
+
+  <translation type="gettext">retain</translation>
+
+  <provides>
+    <binary>retain</binary>
+    <mediatype>application/x-anki-package</mediatype>
+  </provides>
+
+  <content_rating type="oars-1.1"/>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+    <control>touch</control>
+  </supports>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#99c1f1</color>
+    <color type="primary" scheme_preference="dark">#1a5fb4</color>
+  </branding>
+
+  <screenshots>
+    <screenshot type="default" environment="gnome">
+      <caption>A deck's overview: what is due today, and Study</caption>
+      <image type="source" width="1000" height="720">https://raw.githubusercontent.com/Jackicus/GNOME-Retain/v0.1.0/data/screenshots/deck-light.png</image>
+    </screenshot>
+    <screenshot environment="gnome">
+      <caption>Reviewing a card, the answer shown, the grades below</caption>
+      <image type="source" width="1000" height="720">https://raw.githubusercontent.com/Jackicus/GNOME-Retain/v0.1.0/data/screenshots/review-light.png</image>
+    </screenshot>
+    <screenshot environment="gnome">
+      <caption>Statistics: the year's reviews as a heatmap, what is due ahead</caption>
+      <image type="source" width="1000" height="720">https://raw.githubusercontent.com/Jackicus/GNOME-Retain/v0.1.0/data/screenshots/stats-dark.png</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="0.1.0" date="2026-10-07">
+      <description>
+        <p>First release.</p>
+      </description>
+    </release>
+  </releases>
+</component>

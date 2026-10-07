@@ -1,0 +1,517 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+// The Statistics page: a deck chooser and the range of the time-based charts in the header
+// bar, then sections of charts (pages/stats.py fills them from stats.py).
+template $RetainStatsPage: Adw.NavigationPage {
+  title: _("Statistics");
+  tag: "stats";
+
+  Adw.BreakpointBin {
+    width-request: 360;
+    height-request: 200;
+
+    // Narrow: the page moves the range toggles from the header bar to the bottom bar
+    // (its apply and unapply handlers), so the header bar fits 360 px.
+    Adw.Breakpoint narrow {
+      condition ("max-width: 640sp")
+
+      setters {
+        bottom_bar.visible: true;
+      }
+    }
+
+    child: Adw.ToolbarView {
+      [top]
+      Adw.HeaderBar header_bar {
+        show-title: false;
+
+        [start]
+        DropDown deck_chooser {
+          tooltip-text: _("Deck");
+        }
+
+        [end]
+        Adw.ToggleGroup range_group {
+          active-name: "month";
+          tooltip-text: _("Period of the charts over time");
+          homogeneous: true;
+
+          Adw.Toggle toggle_month {
+            name: "month";
+            label: _("1 Month");
+            tooltip: _("The last month");
+          }
+
+          Adw.Toggle toggle_quarter {
+            name: "quarter";
+            label: _("3 Months");
+            tooltip: _("The last three months");
+          }
+
+          Adw.Toggle toggle_year {
+            name: "year";
+            label: _("1 Year");
+            tooltip: _("The last year");
+          }
+
+          Adw.Toggle toggle_all {
+            name: "all";
+            label: _("All");
+            tooltip: _("All time");
+          }
+        }
+      }
+
+      [bottom]
+      Box bottom_bar {
+        visible: false;
+
+        styles [
+          "toolbar",
+        ]
+      }
+
+      content: ScrolledWindow scrolled {
+        hscrollbar-policy: never;
+
+        child: Adw.Clamp {
+          maximum-size: 900;
+          tightening-threshold: 700;
+          margin-start: 12;
+          margin-end: 12;
+          margin-top: 18;
+          margin-bottom: 24;
+
+          child: Box {
+            orientation: vertical;
+            spacing: 24;
+
+            // 1. Today: tiles.
+            Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Label {
+                label: _("Today");
+                xalign: 0;
+
+                styles [
+                  "heading",
+                ]
+              }
+
+              Adw.WrapBox tiles {
+                child-spacing: 12;
+                line-spacing: 12;
+                justify: fill;
+              }
+
+              Label today_caption {
+                xalign: 0;
+                wrap: true;
+
+                styles [
+                  "caption",
+                  "dimmed",
+                ]
+              }
+            }
+
+            // 2. The review heatmap.
+            Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Label {
+                label: _("Reviews");
+                xalign: 0;
+
+                styles [
+                  "heading",
+                ]
+              }
+
+              Box {
+                orientation: vertical;
+                spacing: 12;
+
+                styles [
+                  "card",
+                  "stats-card",
+                ]
+
+                ScrolledWindow {
+                  hscrollbar-policy: automatic;
+                  vscrollbar-policy: never;
+
+                  child: $RetainHeatmap heatmap {};
+                }
+
+                Label heatmap_caption {
+                  xalign: 0;
+                  wrap: true;
+
+                  styles [
+                    "caption",
+                    "dimmed",
+                  ]
+                }
+              }
+            }
+
+            // 3. Cards due ahead.
+            Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Label {
+                label: _("Due Ahead");
+                xalign: 0;
+
+                styles [
+                  "heading",
+                ]
+              }
+
+              Box {
+                orientation: vertical;
+                spacing: 12;
+
+                styles [
+                  "card",
+                  "stats-card",
+                ]
+
+                Adw.WrapBox due_legend {
+                  child-spacing: 18;
+                  line-spacing: 6;
+                }
+
+                $RetainBarChart due_chart {}
+
+                Label due_caption {
+                  xalign: 0;
+                  wrap: true;
+
+                  styles [
+                    "caption",
+                    "dimmed",
+                  ]
+                }
+              }
+            }
+
+            // 4. Reviews done per day.
+            Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Label {
+                label: _("Reviews Done");
+                xalign: 0;
+
+                styles [
+                  "heading",
+                ]
+              }
+
+              Box {
+                orientation: vertical;
+                spacing: 12;
+
+                styles [
+                  "card",
+                  "stats-card",
+                ]
+
+                Adw.WrapBox reviews_legend {
+                  child-spacing: 18;
+                  line-spacing: 6;
+                }
+
+                $RetainBarChart reviews_chart {}
+
+                Label reviews_caption {
+                  xalign: 0;
+                  wrap: true;
+
+                  styles [
+                    "caption",
+                    "dimmed",
+                  ]
+                }
+              }
+            }
+
+            // 5. Card counts.
+            Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Label {
+                label: _("Card Counts");
+                xalign: 0;
+
+                styles [
+                  "heading",
+                ]
+              }
+
+              Adw.WrapBox {
+                child-spacing: 24;
+                line-spacing: 18;
+                align: 0.5;
+
+                styles [
+                  "card",
+                  "stats-card",
+                ]
+
+                $RetainDonut donut {
+                  valign: center;
+                }
+
+                Box counts_legend {
+                  orientation: vertical;
+                  spacing: 6;
+                  valign: center;
+                  width-request: 200;
+                }
+              }
+            }
+
+            // 6. Retention.
+            Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Label {
+                label: _("How Well You Remember");
+                xalign: 0;
+
+                styles [
+                  "heading",
+                ]
+              }
+
+              Adw.WrapBox {
+                child-spacing: 24;
+                line-spacing: 18;
+                justify: fill;
+
+                styles [
+                  "card",
+                  "stats-card",
+                ]
+
+                Box {
+                  orientation: vertical;
+                  spacing: 3;
+                  valign: center;
+                  width-request: 200;
+
+                  Label retention_value {
+                    xalign: 0;
+
+                    styles [
+                      "title-1",
+                      "numeric",
+                    ]
+                  }
+
+                  Label retention_caption {
+                    xalign: 0;
+                    wrap: true;
+
+                    styles [
+                      "caption",
+                      "dimmed",
+                    ]
+                  }
+
+                  Label memorized_caption {
+                    xalign: 0;
+                    wrap: true;
+                    margin-top: 6;
+
+                    styles [
+                      "caption",
+                      "dimmed",
+                    ]
+                  }
+                }
+
+                Box {
+                  orientation: vertical;
+                  spacing: 6;
+                  hexpand: true;
+                  width-request: 240;
+
+                  Adw.WrapBox buttons_legend {
+                    child-spacing: 18;
+                    line-spacing: 6;
+                    margin-bottom: 6;
+                  }
+
+                  Grid buttons_grid {
+                    column-spacing: 12;
+                    row-spacing: 9;
+                  }
+                }
+              }
+            }
+
+            // 7. Intervals and difficulty.
+            Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Label {
+                label: _("Intervals and Difficulty");
+                xalign: 0;
+
+                styles [
+                  "heading",
+                ]
+              }
+
+              Adw.WrapBox {
+                child-spacing: 18;
+                line-spacing: 18;
+                justify: fill;
+
+                styles [
+                  "card",
+                  "stats-card",
+                ]
+
+                Box {
+                  orientation: vertical;
+                  spacing: 6;
+                  hexpand: true;
+                  width-request: 260;
+
+                  Label {
+                    label: _("Review cards by interval");
+                    xalign: 0;
+
+                    styles [
+                      "caption-heading",
+                    ]
+                  }
+
+                  $RetainBarChart intervals_chart {}
+
+                  Label intervals_caption {
+                    xalign: 0;
+                    wrap: true;
+
+                    styles [
+                      "caption",
+                      "dimmed",
+                    ]
+                  }
+                }
+
+                Box {
+                  orientation: vertical;
+                  spacing: 6;
+                  hexpand: true;
+                  width-request: 260;
+
+                  Label {
+                    label: _("Cards by difficulty");
+                    xalign: 0;
+
+                    styles [
+                      "caption-heading",
+                    ]
+                  }
+
+                  $RetainBarChart difficulty_chart {}
+
+                  Label difficulty_caption {
+                    xalign: 0;
+                    wrap: true;
+
+                    styles [
+                      "caption",
+                      "dimmed",
+                    ]
+                  }
+                }
+              }
+            }
+
+            // 8. The hour of the day.
+            Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Label {
+                label: _("When You Study");
+                xalign: 0;
+
+                styles [
+                  "heading",
+                ]
+              }
+
+              Box {
+                orientation: vertical;
+                spacing: 12;
+
+                styles [
+                  "card",
+                  "stats-card",
+                ]
+
+                Adw.WrapBox hourly_legend {
+                  child-spacing: 18;
+                  line-spacing: 6;
+                }
+
+                $RetainBarChart hourly_chart {}
+
+                Label hourly_caption {
+                  xalign: 0;
+                  wrap: true;
+
+                  styles [
+                    "caption",
+                    "dimmed",
+                  ]
+                }
+              }
+            }
+
+            // 9. Totals.
+            Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Label {
+                label: _("Totals");
+                xalign: 0;
+
+                styles [
+                  "heading",
+                ]
+              }
+
+              Adw.WrapBox totals {
+                child-spacing: 12;
+                line-spacing: 12;
+                justify: fill;
+              }
+            }
+          };
+        };
+      };
+    };
+  }
+}

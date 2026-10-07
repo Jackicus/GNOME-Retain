@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/io/github/jackicus/Retain">
+    <file preprocess="xml-stripblanks">window.ui</file>
+    <file preprocess="xml-stripblanks">today.ui</file>
+    <file preprocess="xml-stripblanks">deck.ui</file>
+    <file preprocess="xml-stripblanks">browse.ui</file>
+    <file preprocess="xml-stripblanks">stats.ui</file>
+    <file preprocess="xml-stripblanks">review.ui</file>
+    <file preprocess="xml-stripblanks">add_edit.ui</file>
+    <file preprocess="xml-stripblanks">deck_options.ui</file>
+    <file preprocess="xml-stripblanks">custom_study.ui</file>
+    <file preprocess="xml-stripblanks">import_export.ui</file>
+    <file preprocess="xml-stripblanks">preferences.ui</file>
+    <file>style.css</file>
+    <file>card.css</file>
+    <file preprocess="xml-stripblanks">metainfo.xml</file>
+  </gresource>
+</gresources>

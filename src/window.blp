@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+template $RetainWindow: Adw.ApplicationWindow {
+  title: _("Retain");
+  width-request: 360;
+  height-request: 294;
+
+  Adw.Breakpoint {
+    condition ("max-width: 640sp")
+
+    setters {
+      split_view.collapsed: true;
+      sidebar.mode: page;
+    }
+  }
+
+  content: Adw.ToastOverlay toast_overlay {
+    child: Adw.NavigationSplitView split_view {
+      min-sidebar-width: 220;
+      max-sidebar-width: 300;
+
+      // The sidebar's header bar carries the app's name, as GNOME's core apps title theirs.
+      sidebar: Adw.NavigationPage {
+        title: _("Retain");
+        tag: "sidebar";
+
+        child: Adw.ToolbarView {
+          [top]
+          Adw.HeaderBar {
+            [start]
+            Button {
+              icon-name: "list-add-symbolic";
+              action-name: "app.add";
+              tooltip-text: _("Add Cards");
+            }
+
+            [end]
+            MenuButton primary_menu_button {
+              icon-name: "open-menu-symbolic";
+              menu-model: primary_menu;
+              tooltip-text: _("Main Menu");
+              primary: true;
+            }
+          }
+
+          content: Adw.Sidebar sidebar {};
+
+          [bottom]
+          Box {
+            margin-start: 6;
+            margin-end: 6;
+            margin-top: 6;
+            margin-bottom: 6;
+
+            Button {
+              action-name: "app.new-deck";
+              hexpand: true;
+
+              styles [
+                "flat",
+              ]
+
+              child: Box {
+                spacing: 12;
+
+                Image {
+                  icon-name: "folder-new-symbolic";
+                  accessible-role: presentation;
+                }
+
+                Label {
+                  label: _("New Deck");
+                  xalign: 0;
+                  hexpand: true;
+                  ellipsize: end;
+                }
+              };
+            }
+          }
+        };
+      };
+
+      // Each page in the navigation view carries its own header bar.
+      content: Adw.NavigationPage content_page {
+        title: _("Today");
+        tag: "content";
+        child: Adw.NavigationView navigation_view {};
+      };
+    };
+  };
+}
+
+menu primary_menu {
+  section {
+    item {
+      label: _("_Import…");
+      action: "app.import";
+    }
+
+    item {
+      label: _("_Export…");
+      action: "app.export";
+    }
+  }
+
+  section {
+    item {
+      label: _("_Undo");
+      action: "app.undo";
+    }
+  }
+
+  section {
+    item {
+      label: _("_Preferences");
+      action: "app.preferences";
+    }
+
+    item {
+      label: _("_Keyboard Shortcuts");
+      action: "app.shortcuts";
+    }
+
+    item {
+      label: _("_About Retain");
+      action: "app.about";
+    }
+  }
+}

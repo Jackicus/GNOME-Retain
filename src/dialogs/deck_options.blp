@@ -1,0 +1,296 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+// Deck Options: a deck's preset, simplified from Anki's page (dialogs/deck_options.py).
+template $RetainDeckOptionsDialog: Adw.PreferencesDialog {
+  title: _("Deck Options");
+  content-width: 560;
+  content-height: 720;
+  search-enabled: false;
+
+  Adw.PreferencesPage {
+    Adw.PreferencesGroup {
+      Adw.ComboRow preset_row {
+        title: _("Preset");
+        use-markup: false;
+
+        [suffix]
+        MenuButton preset_menu_button {
+          icon-name: "view-more-symbolic";
+          valign: center;
+          menu-model: preset_menu;
+          tooltip-text: _("Preset Menu");
+
+          styles [
+            "flat",
+          ]
+        }
+      }
+    }
+
+    Adw.PreferencesGroup {
+      title: _("Daily Limits");
+      description: _("Across the deck and its subdecks, from the day’s start.");
+
+      Adw.SpinRow new_per_day_row {
+        title: _("New Cards per Day");
+        numeric: true;
+
+        adjustment: Adjustment {
+          lower: 0;
+          upper: 9999;
+          step-increment: 1;
+          page-increment: 10;
+        };
+      }
+
+      Adw.SpinRow reviews_per_day_row {
+        title: _("Maximum Reviews per Day");
+        numeric: true;
+
+        adjustment: Adjustment {
+          lower: 0;
+          upper: 9999;
+          step-increment: 10;
+          page-increment: 50;
+        };
+      }
+    }
+
+    Adw.PreferencesGroup {
+      title: _("Memory");
+
+      Adw.PreferencesRow retention_row {
+        title: _("Desired Retention");
+        activatable: false;
+
+        child: Box {
+          orientation: vertical;
+          spacing: 6;
+          margin-top: 12;
+          margin-bottom: 12;
+          margin-start: 12;
+          margin-end: 12;
+
+          Box {
+            spacing: 12;
+
+            Label {
+              label: _("Desired Retention");
+              xalign: 0;
+              hexpand: true;
+              ellipsize: end;
+            }
+
+            Label retention_value {
+              label: "90%";
+
+              styles [
+                "numeric",
+              ]
+            }
+          }
+
+          Scale retention_scale {
+            draw-value: false;
+            hexpand: true;
+            round-digits: 2;
+
+            adjustment: Adjustment retention_adjustment {
+              lower: 0.70;
+              upper: 0.99;
+              step-increment: 0.01;
+              page-increment: 0.05;
+            };
+
+            marks [
+              mark (0.80, bottom, "80%"),
+              mark (0.90, bottom, "90%"),
+              mark (0.95, bottom, "95%"),
+            ]
+          }
+
+          Label retention_subtitle {
+            xalign: 0;
+            wrap: true;
+
+            styles [
+              "caption",
+              "dimmed",
+            ]
+          }
+
+          Label retention_estimate {
+            xalign: 0;
+            wrap: true;
+
+            styles [
+              "caption",
+            ]
+          }
+        };
+      }
+
+      Adw.ActionRow optimize_row {
+        title: _("Optimize Parameters");
+        use-markup: false;
+
+        [suffix]
+        Stack optimize_stack {
+          valign: center;
+
+          StackPage {
+            name: "button";
+
+            child: Button optimize_button {
+              label: _("_Optimize");
+              use-underline: true;
+              valign: center;
+            };
+          }
+
+          StackPage {
+            name: "working";
+
+            child: Box {
+              spacing: 6;
+              valign: center;
+
+              Adw.Spinner {}
+
+              Label optimize_progress {
+                styles [
+                  "numeric",
+                  "dimmed",
+                ]
+              }
+            };
+          }
+        }
+      }
+
+      Adw.ExpanderRow advanced_row {
+        title: _("Advanced");
+        subtitle: _("Steps, ordering, leeches and the memory model’s parameters");
+
+        Adw.EntryRow learning_steps_row {
+          title: _("Learning Steps");
+          tooltip-text: _("Minutes between tries of a new card: “1m 10m”, or hours (h) and days (d)");
+        }
+
+        Adw.EntryRow relearning_steps_row {
+          title: _("Relearning Steps");
+          tooltip-text: _("Steps for a card forgotten on review: “10m”");
+        }
+
+        Adw.ComboRow new_order_row {
+          title: _("New Card Order");
+          use-markup: false;
+
+          model: StringList {
+            strings [
+              _("In Order Added"),
+              _("Random"),
+            ]
+          };
+        }
+
+        Adw.ComboRow new_mix_row {
+          title: _("New Cards");
+          use-markup: false;
+
+          model: StringList {
+            strings [
+              _("Mixed With Reviews"),
+              _("After Reviews"),
+              _("Before Reviews"),
+            ]
+          };
+        }
+
+        Adw.SwitchRow bury_row {
+          title: _("Bury Siblings");
+          subtitle: _("Show one card of a note per day");
+        }
+
+        Adw.SpinRow leech_threshold_row {
+          title: _("Leech Threshold");
+          subtitle: _("Lapses before a card is a leech");
+          numeric: true;
+
+          adjustment: Adjustment {
+            lower: 1;
+            upper: 99;
+            step-increment: 1;
+            page-increment: 5;
+          };
+        }
+
+        Adw.ComboRow leech_action_row {
+          title: _("Leech Action");
+          use-markup: false;
+
+          model: StringList {
+            strings [
+              _("Tag Only"),
+              _("Suspend"),
+            ]
+          };
+        }
+
+        Adw.SpinRow maximum_interval_row {
+          title: _("Maximum Interval");
+          subtitle: _("Days");
+          numeric: true;
+
+          adjustment: Adjustment {
+            lower: 1;
+            upper: 36500;
+            step-increment: 1;
+            page-increment: 30;
+          };
+        }
+
+        Adw.EntryRow parameters_row {
+          title: _("FSRS Parameters");
+          tooltip-text: _("The 21 numbers of the memory model, comma-separated; empty for the defaults");
+
+          [suffix]
+          Button parameters_reset_button {
+            icon-name: "edit-undo-symbolic";
+            valign: center;
+            tooltip-text: _("Reset to Defaults");
+
+            styles [
+              "flat",
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+
+menu preset_menu {
+  section {
+    item {
+      label: _("_Add Preset…");
+      action: "preset.add";
+    }
+
+    item {
+      label: _("_Rename…");
+      action: "preset.rename";
+    }
+  }
+
+  section {
+    item {
+      label: _("_Delete");
+      action: "preset.delete";
+    }
+  }
+}

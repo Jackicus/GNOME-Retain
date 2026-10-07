@@ -1,0 +1,251 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+// The Import dialog (dialogs/import_export.py): a stack of three states. "setup" shows the
+// file and its options (the package groups or the text-file groups, as the file is),
+// "working" the progress, "done" the result or the error. The bottom bar carries one
+// button per state. The Export dialog is built in code, in the same module.
+template $RetainImportDialog: Adw.Dialog {
+  title: _("Import");
+  content-width: 520;
+
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {}
+
+    content: Stack stack {
+      vhomogeneous: false;
+      transition-type: crossfade;
+
+      StackPage {
+        name: "setup";
+
+        child: ScrolledWindow {
+          hscrollbar-policy: never;
+          propagate-natural-height: true;
+
+          child: Adw.Clamp {
+            maximum-size: 600;
+            tightening-threshold: 400;
+
+            child: Box {
+              orientation: vertical;
+              spacing: 24;
+              margin-top: 12;
+              margin-bottom: 24;
+              margin-start: 12;
+              margin-end: 12;
+
+              Adw.PreferencesGroup file_group {
+                Adw.ActionRow file_row {
+                  title: _("File");
+                  subtitle-selectable: true;
+
+                  styles [
+                    "property",
+                  ]
+                }
+              }
+
+              // An Anki deck or collection.
+              Adw.PreferencesGroup package_group {
+                Adw.SwitchRow scheduling_row {
+                  title: _("Include Scheduling");
+                  subtitle: _("Keep each card’s progress and review history");
+                  active: true;
+                }
+
+                Adw.ComboRow deck_row {
+                  title: _("Into Deck");
+                  subtitle: _("Where the file’s decks go");
+                }
+              }
+
+              // A text file: one note type, one deck, its columns mapped to the fields.
+              Adw.PreferencesGroup text_group {
+                Adw.ComboRow notetype_row {
+                  title: _("Note Type");
+                }
+
+                Adw.ComboRow text_deck_row {
+                  title: _("Deck");
+                }
+
+                Adw.EntryRow tags_row {
+                  title: _("Tags");
+                }
+
+                Adw.SwitchRow html_row {
+                  title: _("Allow HTML");
+                  subtitle: _("Formatting tags in the file become formatting, not text");
+                }
+
+                Adw.SwitchRow update_row {
+                  title: _("Update Existing Notes");
+                  subtitle: _("A row whose first field matches a note replaces that note’s fields");
+                  active: true;
+                }
+              }
+
+              Adw.PreferencesGroup columns_group {
+                title: _("Columns");
+                description: _("Which column of the file fills each field");
+              }
+
+              Adw.PreferencesGroup preview_group {
+                title: _("Preview");
+
+                Label preview_label {
+                  xalign: 0;
+                  wrap: true;
+                  wrap-mode: word_char;
+                  selectable: true;
+
+                  styles [
+                    "caption",
+                    "dimmed",
+                  ]
+                }
+              }
+
+              Label error_label {
+                visible: false;
+                xalign: 0;
+                wrap: true;
+                wrap-mode: word_char;
+
+                styles [
+                  "error",
+                ]
+              }
+            };
+          };
+        };
+      }
+
+      StackPage {
+        name: "working";
+
+        child: Box {
+          orientation: vertical;
+          spacing: 12;
+          valign: center;
+          margin-top: 36;
+          margin-bottom: 36;
+          margin-start: 24;
+          margin-end: 24;
+
+          Adw.Spinner {
+            width-request: 48;
+            height-request: 48;
+            halign: center;
+          }
+
+          Label progress_label {
+            label: _("Importing…");
+            justify: center;
+            wrap: true;
+
+            styles [
+              "title-4",
+            ]
+          }
+
+          ProgressBar progress_bar {
+            margin-top: 6;
+          }
+        };
+      }
+
+      StackPage {
+        name: "done";
+
+        child: Box {
+          orientation: vertical;
+          spacing: 12;
+          margin-top: 36;
+          margin-bottom: 24;
+          margin-start: 24;
+          margin-end: 24;
+
+          Image done_icon {
+            icon-name: "emblem-ok-symbolic";
+            pixel-size: 48;
+            accessible-role: presentation;
+
+            styles [
+              "success",
+            ]
+          }
+
+          Label done_title {
+            justify: center;
+            wrap: true;
+
+            styles [
+              "title-2",
+            ]
+          }
+
+          Label done_body {
+            justify: center;
+            wrap: true;
+            wrap-mode: word_char;
+            selectable: true;
+          }
+
+          Adw.PreferencesGroup problems_group {
+            visible: false;
+            margin-top: 12;
+
+            Adw.ExpanderRow problems_row {
+              title: _("Problems");
+            }
+          }
+        };
+      }
+    };
+
+    [bottom]
+    Box {
+      halign: center;
+      margin-top: 12;
+      margin-bottom: 24;
+      margin-start: 24;
+      margin-end: 24;
+
+      Button import_button {
+        label: _("_Import");
+        use-underline: true;
+
+        styles [
+          "pill",
+          "suggested-action",
+        ]
+      }
+
+      Button cancel_button {
+        label: _("_Cancel");
+        use-underline: true;
+        visible: false;
+
+        styles [
+          "pill",
+        ]
+      }
+
+      Button close_button {
+        label: _("_Close");
+        use-underline: true;
+        visible: false;
+
+        styles [
+          "pill",
+        ]
+      }
+    }
+  };
+}

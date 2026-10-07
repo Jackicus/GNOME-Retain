@@ -1,0 +1,9 @@
+#separator:tab
+#html:true
+#tags column:3
+#notetype column:4
+#deck column:5
+#columns:Front	Back	Tags	Notetype	Deck
+# a comment between the header and the rows
+abacus	<b>an old counting frame</b>	objects tools	Basic	Invented::Things
+balafon	a wooden xylophone	instruments	Basic	Invented::Sounds

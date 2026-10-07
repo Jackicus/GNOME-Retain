@@ -1,0 +1,31 @@
+#!@PYTHON@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: 2026 Jack Tully
+
+import os
+import signal
+import sys
+
+VERSION = '@VERSION@'
+APP_ID = '@APP_ID@'
+BASE_ID = '@BASE_ID@'
+PROFILE = '@PROFILE@'
+pkgdatadir = '@pkgdatadir@'
+localedir = '@localedir@'
+
+sys.path.insert(1, pkgdatadir)
+signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+from retain import i18n  # noqa: E402
+
+i18n.setup(localedir)  # for Python's gettext and GtkBuilder's, before anything is translated
+
+if __name__ == '__main__':
+    from gi.repository import Gio
+
+    resource = Gio.Resource.load(os.path.join(pkgdatadir, 'retain.gresource'))
+    resource._register()
+
+    from retain import main
+
+    sys.exit(main.main(VERSION, APP_ID, BASE_ID, PROFILE))

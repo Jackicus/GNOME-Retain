@@ -1,0 +1,113 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+// Study More: the ways to study a deck beyond today's queue (dialogs/custom_study.py). Each
+// row is a choice with a radio button; Start runs the chosen one.
+template $RetainCustomStudyDialog: Adw.Dialog {
+  title: _("Study More");
+  content-width: 420;
+
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {}
+
+    content: ScrolledWindow {
+      hscrollbar-policy: never;
+      propagate-natural-height: true;
+
+      child: Box {
+        orientation: vertical;
+        spacing: 24;
+        margin-top: 6;
+        margin-bottom: 24;
+        margin-start: 18;
+        margin-end: 18;
+
+        Adw.PreferencesGroup {
+          Adw.SpinRow new_row {
+            title: _("Learn More New Cards");
+            subtitle: _("Beyond today’s limit");
+            numeric: true;
+
+            adjustment: Adjustment {
+              lower: 1;
+              upper: 999;
+              value: 10;
+              step-increment: 1;
+              page-increment: 10;
+            };
+          }
+
+          Adw.SpinRow review_row {
+            title: _("Review More Cards Due");
+            subtitle: _("Beyond today’s limit");
+            numeric: true;
+
+            adjustment: Adjustment {
+              lower: 1;
+              upper: 999;
+              value: 20;
+              step-increment: 1;
+              page-increment: 10;
+            };
+          }
+
+          Adw.SpinRow forgotten_row {
+            title: _("Review Forgotten Cards");
+            subtitle: _("Days to look back");
+            numeric: true;
+
+            adjustment: Adjustment {
+              lower: 1;
+              upper: 365;
+              value: 7;
+              step-increment: 1;
+              page-increment: 7;
+            };
+          }
+
+          Adw.SpinRow ahead_row {
+            title: _("Review Ahead");
+            subtitle: _("Days ahead");
+            numeric: true;
+
+            adjustment: Adjustment {
+              lower: 1;
+              upper: 365;
+              value: 1;
+              step-increment: 1;
+              page-increment: 7;
+            };
+          }
+
+          Adw.ComboRow tag_row {
+            title: _("Study by Tag");
+            subtitle: _("A cram: nothing is scheduled");
+            use-markup: false;
+          }
+
+          Adw.ActionRow all_row {
+            title: _("Practise Every Card");
+            subtitle: _("A cram: nothing is scheduled");
+            activatable: true;
+            use-markup: false;
+          }
+        }
+
+        Button start_button {
+          label: _("_Start");
+          use-underline: true;
+          halign: center;
+
+          styles [
+            "pill",
+            "suggested-action",
+          ]
+        }
+      };
+    };
+  };
+}

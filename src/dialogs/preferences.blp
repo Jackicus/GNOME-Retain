@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+// Preferences (app.preferences, Ctrl+,): each switch and spin row bound to its setting in
+// preferences.py; the Collection group's rows act on the collection's folder and files.
+// Row titles are header-capitalised, as Settings' are; subtitles say the rest.
+template $RetainPreferencesDialog: Adw.PreferencesDialog {
+  Adw.PreferencesPage {
+    name: "general";
+    title: _("General");
+    icon-name: "preferences-system-symbolic";
+
+    Adw.PreferencesGroup {
+      title: _("Reviewing");
+
+      Adw.SwitchRow remaining_row {
+        title: _("Show Remaining Counts");
+        subtitle: _("How many new, learning and due cards are left in the session");
+      }
+
+      Adw.SwitchRow intervals_row {
+        title: _("Show Next Intervals on the Buttons");
+        subtitle: _("When each answer would bring the card back");
+      }
+
+      Adw.SwitchRow sound_row {
+        title: _("Play Sound Automatically");
+        subtitle: _("A card’s sound plays as the card is shown");
+      }
+
+      Adw.SwitchRow two_button_row {
+        title: _("Answer with Again and Good Only");
+        subtitle: _("Hard and Easy stay on the keyboard");
+      }
+
+      Adw.SpinRow text_size_row {
+        title: _("Text Size");
+        subtitle: _("Of the card’s text, as a percentage of its own");
+        numeric: true;
+
+        adjustment: Adjustment {
+          lower: 50;
+          upper: 300;
+          step-increment: 10;
+          page-increment: 50;
+        };
+      }
+    }
+
+    Adw.PreferencesGroup {
+      title: _("Day");
+
+      Adw.SpinRow day_start_row {
+        title: _("New Day Starts At");
+        subtitle: _("A late session still counts for the day it began in");
+        numeric: true;
+
+        adjustment: Adjustment {
+          lower: 0;
+          upper: 23;
+          step-increment: 1;
+          page-increment: 6;
+        };
+      }
+
+      Adw.SpinRow learn_ahead_row {
+        title: _("Learn Ahead");
+        subtitle: _("Minutes a learning card may be shown early");
+        numeric: true;
+
+        adjustment: Adjustment {
+          lower: 0;
+          upper: 1440;
+          step-increment: 5;
+          page-increment: 30;
+        };
+      }
+    }
+
+    Adw.PreferencesGroup {
+      title: _("Collection");
+
+      Adw.ActionRow location_row {
+        title: _("Location");
+        subtitle-selectable: true;
+
+        [suffix]
+        Button open_button {
+          label: _("_Open Folder");
+          use-underline: true;
+          valign: center;
+        }
+      }
+
+      Adw.ActionRow backups_row {
+        title: _("Backups");
+
+        [suffix]
+        Button backups_folder_button {
+          icon-name: "folder-open-symbolic";
+          tooltip-text: _("Open Backups Folder");
+          valign: center;
+
+          styles [
+            "flat",
+          ]
+        }
+
+        [suffix]
+        Button backup_button {
+          label: _("_Back Up Now");
+          use-underline: true;
+          valign: center;
+        }
+      }
+
+      Adw.ActionRow media_row {
+        title: _("Media");
+        subtitle: _("Images and sounds no note refers to can be removed");
+
+        [suffix]
+        Button media_button {
+          label: _("_Check Media");
+          use-underline: true;
+          valign: center;
+        }
+      }
+    }
+  }
+}

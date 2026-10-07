@@ -1,0 +1,258 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+// The home screen: the day's counts over the whole collection, today's progress, and the
+// decks as a list, each with its counts and a Study button (pages/today.py).
+template $RetainTodayPage: Adw.NavigationPage {
+  title: _("Today");
+  tag: "today";
+
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      show-title: false;
+    }
+
+    content: Stack stack {
+      StackPage {
+        name: "decks";
+
+        child: ScrolledWindow {
+          hscrollbar-policy: never;
+
+          child: Adw.Clamp {
+            maximum-size: 800;
+            tightening-threshold: 600;
+
+            child: Box {
+              orientation: vertical;
+              spacing: 24;
+              margin-top: 18;
+              margin-bottom: 24;
+              margin-start: 18;
+              margin-end: 18;
+
+              Box {
+                orientation: vertical;
+                spacing: 3;
+
+                Label {
+                  label: _("Today");
+                  xalign: 0;
+
+                  styles [
+                    "title-1",
+                  ]
+                }
+
+                Label date_label {
+                  xalign: 0;
+                  ellipsize: end;
+
+                  styles [
+                    "dimmed",
+                  ]
+                }
+              }
+
+              // The hero card: the whole collection's day.
+              Box hero {
+                orientation: vertical;
+                spacing: 18;
+
+                styles [
+                  "card",
+                  "today-hero",
+                ]
+
+                Stack hero_stack {
+                  vhomogeneous: false;
+                  StackPage {
+                    name: "counts";
+
+                    child: Box {
+                      homogeneous: true;
+                      spacing: 12;
+
+                      Box {
+                        orientation: vertical;
+                        spacing: 3;
+
+                        Label due_label {
+                          label: "0";
+
+                          styles [
+                            "title-1",
+                            "numeric",
+                            "count-due",
+                          ]
+                        }
+
+                        Label {
+                          label: _("To Review");
+                          ellipsize: end;
+
+                          styles [
+                            "caption",
+                            "dimmed",
+                          ]
+                        }
+                      }
+
+                      Box {
+                        orientation: vertical;
+                        spacing: 3;
+
+                        Label new_label {
+                          label: "0";
+
+                          styles [
+                            "title-1",
+                            "numeric",
+                            "count-new",
+                          ]
+                        }
+
+                        Label {
+                          label: _("New");
+                          ellipsize: end;
+
+                          styles [
+                            "caption",
+                            "dimmed",
+                          ]
+                        }
+                      }
+
+                      Box {
+                        orientation: vertical;
+                        spacing: 3;
+
+                        Label learning_label {
+                          label: "0";
+
+                          styles [
+                            "title-1",
+                            "numeric",
+                            "count-learning",
+                          ]
+                        }
+
+                        Label {
+                          label: _("Learning");
+                          ellipsize: end;
+
+                          styles [
+                            "caption",
+                            "dimmed",
+                          ]
+                        }
+                      }
+                    };
+                  }
+
+                  StackPage {
+                    name: "done";
+
+                    child: Box {
+                      orientation: vertical;
+                      spacing: 6;
+
+                      Image {
+                        icon-name: "emblem-ok-symbolic";
+                        pixel-size: 48;
+                        accessible-role: presentation;
+
+                        styles [
+                          "success",
+                        ]
+                      }
+
+                      Label {
+                        label: _("All Caught Up");
+
+                        styles [
+                          "title-2",
+                        ]
+                      }
+
+                      Label {
+                        label: _("Nothing is due. Study more from a deck, or come back tomorrow.");
+                        wrap: true;
+                        justify: center;
+
+                        styles [
+                          "dimmed",
+                        ]
+                      }
+                    };
+                  }
+                }
+
+                Label progress_label {
+                  wrap: true;
+                  justify: center;
+
+                  styles [
+                    "dimmed",
+                  ]
+                }
+              }
+
+              Adw.PreferencesGroup decks_group {
+                title: _("Decks");
+
+                ListBox decks_list {
+                  selection-mode: none;
+
+                  styles [
+                    "boxed-list",
+                  ]
+                }
+              }
+            };
+          };
+        };
+      }
+
+      StackPage {
+        name: "empty";
+
+        child: Adw.StatusPage empty_page {
+          icon-name: "folder-symbolic";
+          title: _("No Decks Yet");
+          description: _("Add cards, or import an Anki deck.");
+
+          child: Box {
+            halign: center;
+            spacing: 12;
+
+            Button {
+              label: _("_Add Cards");
+              use-underline: true;
+              action-name: "app.add";
+
+              styles [
+                "pill",
+                "suggested-action",
+              ]
+            }
+
+            Button {
+              label: _("_Import…");
+              use-underline: true;
+              action-name: "app.import";
+
+              styles [
+                "pill",
+              ]
+            }
+          };
+        };
+      }
+    };
+  };
+}
