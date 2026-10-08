@@ -75,9 +75,15 @@
   </screenshots>
 
   <releases>
-    <release version="0.1.0" date="2026-10-07">
+    <release version="0.1.0" date="2026-10-08">
       <description>
-        <p>First release.</p>
+        <p>The first release.</p>
+        <ul>
+          <li>Decks, note types and cards: basic, reversed, type-in, cloze and image occlusion</li>
+          <li>FSRS scheduling with a desired-retention slider and an optimizer</li>
+          <li>Anki packages (.apkg, .colpkg) in and out, and CSV/TSV import</li>
+          <li>Search with Anki's syntax, statistics, and undo for every change</li>
+        </ul>
       </description>
     </release>
   </releases>
