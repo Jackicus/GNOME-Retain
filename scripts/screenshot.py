@@ -16,8 +16,9 @@ through scripts/headless.sh so the window opens on a private display. The demo c
 animations are off. --page is a sidebar key: today, browse, stats, or deck:NAME (a deck's
 full name, "Spanish::Verbs"). --study pushes the review page of DECK (the --page's deck, or
 the first deck with cards due), --answer with its answer shown. --dialog opens a dialog over
-the page and shoots it (--scroll then scrolls the dialog). --search types a query into the browser. In the narrow layout the
-shot shows the sidebar, or the page when --page is given (--sidebar keeps the sidebar).
+the page and shoots it (--scroll then scrolls the dialog). --search types a query into the
+browser. In the narrow layout the shot shows the sidebar, or the page when --page is given
+(--sidebar keeps the sidebar).
 """
 
 import argparse

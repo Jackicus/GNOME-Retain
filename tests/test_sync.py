@@ -189,7 +189,9 @@ class MergeTest(SyncTestCase):
 
     def test_new_decks_note_types_and_presets_travel(self):
         laptop, desktop = self.device('laptop'), self.device('desktop')
-        preset = laptop.add_deck_config(DeckConfig(name='Hard Words', new_per_day=5))
+        preset = laptop.add_deck_config(DeckConfig(
+            name='Hard Words', new_per_day=5, study_mode='type', load_balancing=False,
+            easy_days=[1.0, 1.0, 1.0, 1.0, 1.0, 0.5, 0.0]))
         deck = laptop.add_deck('Latin')
         laptop.set_deck_config(deck.id, preset.id)
         vocab = laptop.notetype_by_name('Basic').copy()
@@ -200,7 +202,11 @@ class MergeTest(SyncTestCase):
         theirs = desktop.deck_by_name('Latin')
         self.assertIsNotNone(theirs)
         self.assertEqual(desktop.config_for_deck(theirs.id).name, 'Hard Words')
-        self.assertEqual(desktop.config_for_deck(theirs.id).new_per_day, 5)
+        travelled = desktop.config_for_deck(theirs.id)
+        self.assertEqual(travelled.new_per_day, 5)
+        self.assertEqual(travelled.study_mode, 'type')
+        self.assertFalse(travelled.load_balancing)
+        self.assertEqual(travelled.easy_days, [1.0, 1.0, 1.0, 1.0, 1.0, 0.5, 0.0])
         self.assertEqual(desktop.notetype_by_name('Vocabulary').css, '.card { color: navy; }')
         self.assertEqual(desktop.note_count(), 1)
         self.assertSameCollections()

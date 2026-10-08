@@ -181,8 +181,46 @@ Retain says the port is in use.
 
 The collection lives in `~/.local/share/retain/` (`collection.sqlite` and `media/`); backups
 are made in `backups/` there, up to ten, no more often than every six hours. Preferences shows
-the location and can make a backup on the spot. There is no cloud sync: copy the folder, or
-export a deck, to move it to another machine.
+the location and can make a backup on the spot. To move the collection to another machine,
+copy the folder, export it, or sync it (below).
+
+## Syncing between computers
+
+Retain syncs through a folder that another tool already keeps the same on your computers:
+Syncthing, Nextcloud, Dropbox, or a USB stick you carry between them. There is no server and
+no account.
+
+1. Make an empty folder that the tool syncs. With **Syncthing**, add a folder (for example
+   `~/Sync/Retain`) and share it with your other computers; with **Nextcloud**, make the folder
+   inside the folder the Nextcloud desktop client syncs.
+2. In Retain on the first computer, open Preferences → Sync → *Choose…* and pick the folder.
+   Retain syncs at once.
+3. Wait for the tool to copy the folder to the second computer, install Retain there, and
+   choose the same folder. Its collection merges with the first one's.
+
+From then on Retain syncs when it opens and before it closes (*Sync Automatically*), and
+whenever you press *Sync Now*. A toast says what came in ("Synced: 12 cards, 3 notes from
+Laptop"). *Other Devices* lists the computers that sync through the folder and when each last
+did. Each computer writes only its own file in the folder, so the tool never makes conflict
+copies.
+
+What to know:
+
+- **Last change wins, per card and per note.** If you edit the same note on two computers
+  before they sync, the later edit is kept and the other is lost. Reviews are never lost: every
+  review from every computer is kept, and the card's schedule is the one from its latest
+  review. Deleting a note or deck on one computer deletes it on the others, unless it was edited
+  on another computer after the deletion.
+- **Sync often.** Using Retain on two computers while one is offline for days works, but the
+  merge is per card and per note, not per field: expect the later of two edits to win, not a
+  blend of both.
+- **Keep the clocks right.** "Later" is judged by each computer's clock; one that is far off
+  wins or loses every tie.
+- **Before each merge Retain makes a backup** (Preferences → Backups), so a merge you do not
+  like can be undone by restoring it. A sync clears Undo, as an import does.
+- **Let the tool finish.** If the folder is still being copied, Retain skips a file it cannot
+  read and picks it up at the next sync. Media files go both ways; two different files with the
+  same name are both kept, one renamed.
 
 ## Keyboard shortcuts
 

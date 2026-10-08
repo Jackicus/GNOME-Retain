@@ -67,8 +67,9 @@ runtime, with what it lacks bundled), install `org.flatpak.Builder` from Flathub
 build-aux/flatpak/io.github.jackicus.Retain.Devel.json`. For a look without installing,
 `scripts/run.sh --demo` runs a development build on the invented collection.
 
-Your collection lives in `~/.local/share/retain/`, with backups beside it. There is no cloud
-sync: the [user guide](docs/user-guide.md) says how to move it.
+Your collection lives in `~/.local/share/retain/`, with backups beside it. Retain can sync it
+between computers through a folder that Syncthing, Nextcloud or similar keeps the same on each;
+the [user guide](docs/user-guide.md) says how.
 
 ## Reviewing
 

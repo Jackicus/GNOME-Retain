@@ -105,11 +105,46 @@ read badly. `{{tts}}` renders Anki's `[anki:tts]` tag, spoken and not shown, as 
 Read Aloud splits a side by script so a two-language card gets two voices, and reads
 Japanese from its furigana, since a voice guessing a kanji's reading is often wrong.
 
-## No sync
+## Sync through a folder, one snapshot per device
 
-AnkiWeb has no public API and the sync protocol is Anki's own; a sync of our own would need a
-server. The collection is one folder; Preferences shows where it is. Sync is a possible later
-feature, not a promise.
+AnkiWeb has no public API and its protocol is Anki's own; a sync of our own with a server would
+need one run for every user. Most people who want two computers in step already run something
+that syncs folders (Syncthing, Nextcloud, Dropbox), so Retain syncs through such a folder
+(sync.py) and needs no server or account.
+
+- **Each device writes only its own files** (`devices/ID.sqlite`, a snapshot of its collection,
+  and `devices/ID.json`, its name and last sync), written to a temporary file, flushed and
+  renamed. File-sync tools make conflict copies when two machines change one file; with one
+  writer per file they never do, and a half-copied snapshot is skipped (read-only, checked with
+  `quick_check`) rather than merged. Syncing the live `collection.sqlite` itself would corrupt
+  it the first time two machines wrote between syncs.
+- **Last writer wins per object**, by `modified`: presets, note types, decks, notes (by guid)
+  and cards (by note guid and ord, which survive an independent import of one .apkg on two
+  machines; ids need not). A tie is broken by comparing the contents, so both sides choose
+  alike. Per-field merging would need a history of changes the collection does not keep.
+  Every change to a row sets its `modified`, scheduling included; a new collection's stock note
+  types, Default deck and default preset are modified at 0, so a fresh second computer never
+  overrides the first's customised ones.
+- **Reviews are the union by id**: a review is a fact, never overwritten.
+- **Deletions leave graves** (schema version 2: kind, guid or id, time). A grave as new as an
+  object or newer deletes it; an object edited after its grave lives, and comes back on the
+  device that deleted it. A review alone is not an edit of the note, so it does not save a
+  deleted note. Graves travel with the snapshots and are copied, so a deletion reaches a third
+  device even through a second. Undoing a deletion takes its grave away; a sync clears the undo
+  stack, since what it would undo may already be on the other devices.
+- **Objects made apart are matched by what they are** (a deck by name, a note type by Anki id
+  or by name, kind and field names, a preset by name) and then take the smaller of the two ids,
+  so later syncs match them by id.
+- **Media**: files go both ways; a name both sides use for different contents keeps the shared
+  file under the name and renames the local one (`name-2.ext`), rewriting the local notes'
+  references, which makes those notes newer so the rename travels.
+- **The device id** is random and kept in the collection's config with a fingerprint of the
+  machine and path; a collection copied to another computer gets a new id, or two devices would
+  write the same snapshot.
+- **A backup before a merge**, only when another device's snapshot changed: syncing on every
+  open and close would otherwise rotate the ten backups out within days.
+- **Clock skew is not corrected**: the times are compared as they are, and the user guide says
+  to keep clocks right.
 
 ## Python, like Music Sleeve
 

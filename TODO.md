@@ -3,9 +3,11 @@
 Retain 0.1.0 was built in one day (2026-10-07). What it does is in docs/user-guide.md; this is
 what it does not do yet, roughly in the order it should be done.
 
-- **Sync.** Nothing syncs. AnkiWeb has no public API; a sync of our own needs a protocol and
-  a server (or a folder-based one over Syncthing/Nextcloud: the collection is one SQLite file
-  plus media, so a last-writer-wins folder sync with a lock file is the cheap first step).
+- **Sync, what is left.** The folder sync (sync.py) merges per card and per note, not per
+  field; graves are never pruned; a device that stops syncing stays in the folder (and in Other
+  Devices) until its files are deleted by hand, with no Forget button; a sync's merge runs in one
+  transaction that can make the main window wait on a large collection. AnkiWeb is out of reach
+  (no public API).
 - **Note type editor.** Note types come from the stock set and from imports; there is no
   dialog to add fields or edit templates and CSS (the collection supports it:
   `update_notetype`). Needed: a Manage Note Types dialog with a template editor and preview.
