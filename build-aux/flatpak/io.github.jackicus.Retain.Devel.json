@@ -1,8 +1,7 @@
 {
   "x-comment": [
-    "Development only: GNOME Builder or flatpak-builder run the .Devel build from this tree.",
-    "The GNOME 50 runtime ships WebKitGTK 6.0 and GStreamer. Written without a GNOME 50",
-    "runtime or flatpak-builder to test it on: not built yet."
+    "Development: GNOME Builder or flatpak-builder build the .Devel app from this tree.",
+    "io.github.jackicus.Retain.json is the release manifest (Flathub's), built from a tag."
   ],
   "id": "io.github.jackicus.Retain.Devel",
   "runtime": "org.gnome.Platform",
@@ -14,25 +13,37 @@
     "--socket=fallback-x11",
     "--socket=wayland",
     "--socket=pulseaudio",
-    "--device=dri"
+    "--device=dri",
+    "--filesystem=xdg-run/speech-dispatcher:ro",
+    "--talk-name=org.espeak.Speech.Provider",
+    "--talk-name=ai.piper.Speech.Provider",
+    "--share=network"
   ],
-  "cleanup": ["/include", "/lib/pkgconfig", "/share/pkgconfig", "*.la", "*.a"],
+  "cleanup": [
+    "/include",
+    "/lib/pkgconfig",
+    "/share/pkgconfig",
+    "*.la",
+    "*.a"
+  ],
   "modules": [
-    {
-      "name": "blueprint-compiler",
-      "buildsystem": "meson",
-      "cleanup": ["*"],
-      "sources": [
-        {"type": "git", "url": "https://gitlab.gnome.org/GNOME/blueprint-compiler.git",
-         "tag": "v0.22.2"}
-      ]
-    },
+    "blueprint-compiler.json",
+    "python3-zstandard.json",
+    "python3-speechd.json",
+    "libspiel.json",
     {
       "name": "retain",
       "builddir": true,
       "buildsystem": "meson",
-      "config-opts": ["-Dprofile=development"],
-      "sources": [{"type": "dir", "path": "../.."}]
+      "config-opts": [
+        "-Dprofile=development"
+      ],
+      "sources": [
+        {
+          "type": "dir",
+          "path": "../.."
+        }
+      ]
     }
   ]
 }

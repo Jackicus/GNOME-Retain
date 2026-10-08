@@ -21,8 +21,14 @@ FIXTURES = ROOT / 'tests' / 'fixtures'
 
 try:
     from compression import zstd
-except ImportError:  # pragma: no cover
-    zstd = None
+except ImportError:  # pragma: no cover - Python before 3.14 (the Flatpak's): zstandard
+    try:
+        import zstandard
+
+        class zstd:  # noqa: N801 - stands in for the compression.zstd module
+            compress = staticmethod(lambda data: zstandard.ZstdCompressor().compress(data))
+    except ImportError:
+        zstd = None
 
 BASIC_ID = 1600000000001
 CLOZE_ID = 1600000000002
