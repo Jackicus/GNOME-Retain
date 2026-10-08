@@ -116,3 +116,17 @@ feature, not a promise.
 The owner's other GNOME apps are Python (Music Sleeve) and Rust (3D Viewer). A flashcard app is
 not performance-bound, SQLite does the work, and Python keeps the FSRS and format code readable
 and testable without a build step. The model code has no GTK and is tested without a display.
+
+## Note types: Anki's semantics, stored as you go
+
+The note type editor changes notes the way Anki's schema changes do
+(rslib/src/notetype/schemachange.rs): fields and templates are matched by where they were, not
+by name, so a rename keeps every note's text and is carried into the templates; a deleted
+template takes its cards, reviewed or not; a change that would leave a note without a card is
+refused, as Anki refuses it. Unlike Anki, which keeps a card a template change leaves empty
+for its Empty Cards tool, Retain (which has no such tool) removes it when it was never
+reviewed and is not the note's last card. Each field or template change is stored at once,
+one undo step with a toast that says what went (a field's text in how many notes, a
+template's cards), instead of Anki's confirmations and its Save button: deleting a whole type
+is the only one that asks. A template's text is stored when its page is left, and a template
+with a mistake is never stored: the page cannot be left, a banner says why and offers Revert.

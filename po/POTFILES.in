@@ -34,6 +34,10 @@ src/dialogs/deck_options.py
 src/dialogs/deck_options.blp
 src/dialogs/import_export.py
 src/dialogs/import_export.blp
+src/dialogs/notetypes.py
+src/dialogs/notetypes.blp
+src/dialogs/notetype_page.blp
+src/dialogs/template_page.blp
 src/dialogs/preferences.py
 src/dialogs/preferences.blp
 src/dialogs/shortcuts.py

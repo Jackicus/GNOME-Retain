@@ -12,6 +12,9 @@
     <file preprocess="xml-stripblanks">custom_study.ui</file>
     <file preprocess="xml-stripblanks">import_export.ui</file>
     <file preprocess="xml-stripblanks">preferences.ui</file>
+    <file preprocess="xml-stripblanks">notetypes.ui</file>
+    <file preprocess="xml-stripblanks">notetype_page.ui</file>
+    <file preprocess="xml-stripblanks">template_page.ui</file>
     <file>style.css</file>
     <file>card.css</file>
     <file preprocess="xml-stripblanks">metainfo.xml</file>

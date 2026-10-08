@@ -13,9 +13,10 @@ AnkiConnect API (ankiconnect.py) when card-mining apps are allowed (the ankiconn
 setting; a port already taken, by Anki itself, is toasted when the switch is turned on);
 do_activate builds the Window (imported only then).
 `.apkg` and `.colpkg` files given on the command line (or opened from Files) open the import
-dialog. app.* actions: add, new-deck, import, export, undo, preferences, shortcuts, about,
-quit. Every message for the user goes through toast(); every error through report(), which
-toasts a sentence and logs the rest. Quitting closes the collection, which backs it up.
+dialog. app.* actions: add, new-deck, import, export, notetypes (Manage Note Types), undo,
+preferences, shortcuts, about, quit. Every message for the user goes through toast(); every
+error through report(), which toasts a sentence and logs the rest. Quitting closes the
+collection, which backs it up.
 """
 
 import logging
@@ -212,7 +213,8 @@ class Application(Adw.Application):
         for name, callback in (
                 ('add', self.on_add), ('new-deck', self.on_new_deck),
                 ('import', self.on_import), ('export', self.on_export),
-                ('undo', self.on_undo), ('preferences', self.on_preferences),
+                ('notetypes', self.on_notetypes), ('undo', self.on_undo),
+                ('preferences', self.on_preferences),
                 ('shortcuts', self.on_shortcuts), ('about', self.on_about),
                 ('quit', self.on_quit)):
             action = Gio.SimpleAction.new(name, None)
@@ -252,6 +254,11 @@ class Application(Adw.Application):
         window = self.get_active_window()
         import_export.present_export(self, window,
                                      deck_id=window.current_deck_id() if window else None)
+
+    def on_notetypes(self, *_args):
+        from .dialogs import notetypes
+
+        notetypes.present(self, self.get_active_window())
 
     def on_undo(self, *_args):
         self.undo()

@@ -100,6 +100,33 @@ with formatting the editor cannot show (a table, say) is edited as HTML so nothi
 Tags go in the Tags row, separated by spaces. If a card with the same front already exists,
 the editor says so.
 
+## Note types
+
+A note type says which fields a note has and which cards it makes from them. **Manage Note
+Types…** in the main menu (or the edit button on the Type row of Add Cards) lists them, each
+with its number of notes.
+
+- **+** adds a type, made from one of the stock kinds (Basic, Cloze, …) or as a copy of one of
+  yours. Each type's menu renames or deletes it; deleting a type deletes its notes, so Retain
+  asks first, saying how many.
+- A type's page lists its **fields**: add one with +, and each field's menu renames it, moves
+  it up or down, makes the browser sort by it, or deletes it. Renaming a field renames it in
+  the card templates too (`{{Meaning}}`, `{{#Meaning}}…{{/Meaning}}`, `{{furigana:Meaning}}`);
+  deleting it deletes its text in every note, and removes it from the templates.
+- Below them are its **card templates**, one per kind of card (a cloze type has one, which
+  makes a card for each cloze number). + adds one, which starts as a reverse card; a
+  template's menu renames, moves or deletes it, and deleting it deletes its cards. Adding a
+  template makes its cards for the notes that already exist.
+- Open a template to edit its **front**, its **back** and the type's **styling** (CSS shared by
+  every card of the type), with a preview below from your latest note of that type, or from
+  sample text when there is none. A template with a mistake (a `{{#Field}}` never closed, a
+  field that does not exist, a front without a field) is not saved: a banner says what is
+  wrong, with **Revert** to go back to the saved template. The changes are saved when you
+  leave the page or close the dialog. A card whose front a change leaves empty is removed if
+  you never reviewed it.
+
+Every change is saved at once and can be undone (the toast's Undo, or Ctrl+Z).
+
 ## Browsing
 
 **Browse** lists cards (or notes) and lets you search with Anki's syntax:

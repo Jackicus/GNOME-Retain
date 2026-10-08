@@ -31,6 +31,8 @@ number) for `type:cloze:`; the review page draws the entry and the comparison th
     cloze_numbers(text) -> set[int]
     cards_for_note(notetype_kind, templates, fields) -> list[int]
     field_names_in(template) -> set[str]
+    cloze_fields_in(template) -> set[str]     the fields its cloze filters apply to
+    rename_fields(template, {old: new or None}) -> str   fields renamed or deleted, as Anki
     strip_html(text) -> str            strip_html_media is the same function
     media_references(text) -> list[str]
     sound_tags(text) -> list[str]
@@ -77,11 +79,18 @@ _MEDIA = re.compile(
     r'<(?:img|audio|video|source|object)\b[^>]*?(?<![\w-])(?:src|data)\s*=\s*'
     r'(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+))'
     r'|\[sound:([^\]]+)\]', re.IGNORECASE | re.DOTALL)
+_RENAMABLE = re.compile(r'\{\{(.*?)\}\}|<%(.*?)%>', re.DOTALL)
 _URL_SCHEME = re.compile(r'[a-z][a-z0-9+.-]*:', re.IGNORECASE)
 
 
 class TemplateError(Exception):
-    """A template that cannot be parsed: a conditional not closed, or closed but not open."""
+    """A template that cannot be parsed: a conditional not closed (`problem` 'unclosed'), or
+    closed but not open ('unopened'); `key` is the conditional's name."""
+
+    def __init__(self, message, problem='', key=''):
+        super().__init__(message)
+        self.problem = problem
+        self.key = key
 
 
 # Templates
@@ -107,13 +116,15 @@ def _parse(template):
         elif handle[:1] == '/':
             key = handle[1:].strip()
             if not stack or stack[-1][1] != key:
-                raise TemplateError(f'{{{{/{key}}}}} closes a conditional that is not open')
+                raise TemplateError(f'{{{{/{key}}}}} closes a conditional that is not open',
+                                    'unopened', key)
             stack.pop()
         else:
             parts = [part.strip() for part in handle.split(':')]
             current.append(('field', parts[-1], parts[:-1]))
     if stack:
-        raise TemplateError(f'{{{{#{stack[-1][1]}}}}} is not closed')
+        raise TemplateError(f'{{{{#{stack[-1][1]}}}}} is not closed', 'unclosed',
+                            stack[-1][1])
     if position < len(template):
         root.append(('text', template[position:]))
     return root
@@ -272,6 +283,46 @@ def _cloze_fields(nodes, names):
         elif node[0] != 'text':
             _cloze_fields(node[2], names)
     return names
+
+
+def cloze_fields_in(template):
+    """The field names a template's `cloze:` (or `cloze-only:`) filters are applied to."""
+    return _cloze_fields(_parse(template), set())
+
+
+def _rename_handle(match, renames):
+    """One `{{…}}` (or `<%…%>`) for rename_fields(): renamed, removed or left as written."""
+    if match.group(1) is not None:
+        opening, handle, closing = '{{', match.group(1), '}}'
+    else:
+        opening, handle, closing = '<%', match.group(2), '%>'
+    stripped = handle.strip()
+    if stripped[:1] in ('#', '^', '/'):
+        key = stripped[1:].strip()
+        if key not in renames:
+            return match.group(0)
+        if renames[key] is None:
+            return ''
+        return f'{opening}{stripped[0]}{renames[key]}{closing}'
+    head, separator, key = handle.rpartition(':')
+    if key.strip() not in renames:
+        return match.group(0)
+    new = renames[key.strip()]
+    if new is None:
+        return ''
+    return f'{opening}{head}{separator}{new}{closing}'
+
+
+def rename_fields(template, renames):
+    """The template with its references to fields renamed and removed, as Anki rewrites
+    them when a note type's fields change: `renames` maps an old name to the new one, or to
+    None for a field deleted. Replacements, whatever their filters (`{{furigana:Old}}`), and
+    conditionals (`{{#Old}}`, `{{^Old}}`, `{{/Old}}`) are renamed; a deleted field's
+    replacements go, and so do its conditionals' tags, what they held staying. The rest of
+    the template is left as written."""
+    if not renames:
+        return template
+    return _RENAMABLE.sub(lambda match: _rename_handle(match, renames), template)
 
 
 def _qfmt_of(template):

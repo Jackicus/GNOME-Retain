@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+// A note type's page in Manage Note Types (dialogs/notetypes.py): its fields and its card
+// templates, each row made in code with a menu of what can be done to it.
+template $RetainNoteTypePage: Adw.NavigationPage {
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {}
+
+    content: Adw.PreferencesPage {
+      Adw.PreferencesGroup fields_group {
+        title: _("Fields");
+
+        header-suffix: Button add_field_button {
+          icon-name: "list-add-symbolic";
+          tooltip-text: _("Add Field");
+          valign: center;
+
+          styles [
+            "flat",
+          ]
+        };
+      }
+
+      Adw.PreferencesGroup templates_group {
+        title: _("Card Templates");
+
+        header-suffix: Button add_template_button {
+          icon-name: "list-add-symbolic";
+          tooltip-text: _("Add Card Template");
+          valign: center;
+
+          styles [
+            "flat",
+          ]
+        };
+      }
+    };
+  };
+}

@@ -19,6 +19,8 @@ over it; without that widget the Occlusion field is a plain field. The last type
 used are kept in the collection's config ('last_notetype', 'last_deck'); the last tags are
 remembered for the next add only with the config 'sticky_tags'. The editor's keys are
 shortcuts.EDITOR, handled by the dialog's own key controller before the text views see them.
+When adding, a button on the Type row opens Manage Note Types (dialogs/notetypes.py) on the
+chosen type; when it closes, the types and the fields are read again, what was typed kept.
 """
 
 import logging
@@ -86,6 +88,12 @@ class AddEditDialog(Adw.Dialog):
             self.set_title(_('Edit Note'))
             self.primary_button.set_label(_('_Save'))
         self._fill_types(note.notetype_id if note else notetype_id)
+        if note is None:
+            manage = Gtk.Button(icon_name='document-edit-symbolic', valign=Gtk.Align.CENTER,
+                                tooltip_text=_('Manage Note Types'))
+            manage.add_css_class('flat')
+            self.type_row.add_suffix(manage)
+            connect_weak(manage, 'clicked', self._on_manage_types)
         self._fill_decks(self._initial_deck(deck_id))
         self._fill_tags()
         self._build_fields()
@@ -421,6 +429,32 @@ class AddEditDialog(Adw.Dialog):
 
     def _on_cancel(self, _button):
         self.close()
+
+    def _on_manage_types(self, _button):
+        from . import notetypes as manage
+
+        notetype = self.selected_notetype()
+        dialog = manage.present(self.app, self, notetype.id if notetype else None)
+        connect_weak(dialog, 'closed', self._on_types_managed)
+        return dialog
+
+    def _on_types_managed(self, _dialog):
+        """The types may have changed: list them again, and rebuild the fields with what was
+        typed in them kept by field name."""
+        notetype = self.selected_notetype()
+        typed = {}
+        if notetype is not None and self.occlusion is None:
+            typed = dict(zip(notetype.field_names(), self.field_values(), strict=False))
+        self._building = True
+        try:
+            self._fill_types(notetype.id if notetype else None)
+        finally:
+            self._building = False
+        self._build_fields()
+        if self.occlusion is None and self.notetype is not None:
+            for name, editor in zip(self.notetype.field_names(), self.editors, strict=False):
+                if typed.get(name):
+                    editor.set_html(typed[name])
 
     def _on_type_changed(self, *_args):
         if not self._building:

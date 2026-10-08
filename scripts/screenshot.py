@@ -7,7 +7,8 @@
     scripts/headless.sh scripts/screenshot.py [out.png] [--light] [--size WxH]
                           [--page KEY] [--study [DECK]] [--answer] [--sidebar]
                           [--dialog add|new-deck|options|custom-study|import|export|
-                                    preferences|about|shortcuts|edit]
+                                    preferences|about|shortcuts|edit|notetypes|
+                                    notetype|template]
                           [--search QUERY] [--scroll PX] [--setting KEY=VALUE …]
 
 Builds nothing itself: run meson install -C build (or scripts/run.sh) first, and run it
@@ -16,8 +17,10 @@ through scripts/headless.sh so the window opens on a private display. The demo c
 animations are off. --page is a sidebar key: today, browse, stats, or deck:NAME (a deck's
 full name, "Spanish::Verbs"). --study pushes the review page of DECK (the --page's deck, or
 the first deck with cards due), --answer with its answer shown. --dialog opens a dialog over
-the page and shoots it. --search types a query into the browser. In the narrow layout the
-shot shows the sidebar, or the page when --page is given (--sidebar keeps the sidebar).
+the page and shoots it (notetypes: Manage Note Types; notetype: the page of the type with
+the most notes; template: its first card template's editor). --search types a query into
+the browser. In the narrow layout the shot shows the sidebar, or the page when --page is
+given (--sidebar keeps the sidebar).
 """
 
 import argparse
@@ -36,7 +39,8 @@ parser.add_argument('--study', nargs='?', const='', metavar='DECK')
 parser.add_argument('--answer', action='store_true')
 parser.add_argument('--sidebar', action='store_true')
 parser.add_argument('--dialog', choices=['add', 'new-deck', 'options', 'custom-study', 'import',
-                                         'export', 'preferences', 'about', 'shortcuts', 'edit'])
+                                         'export', 'preferences', 'about', 'shortcuts', 'edit',
+                                         'notetypes', 'notetype', 'template'])
 parser.add_argument('--search', metavar='QUERY')
 parser.add_argument('--scroll', metavar='PX', type=int, default=0)
 parser.add_argument('--setting', metavar='KEY=VALUE', action='append', default=[])
@@ -84,7 +88,8 @@ def open_dialog(window):
     actions = {'add': 'app.add', 'new-deck': 'app.new-deck', 'import': 'app.import',
                'export': 'app.export', 'preferences': 'app.preferences',
                'about': 'app.about', 'shortcuts': 'app.shortcuts',
-               'options': 'win.deck-options', 'custom-study': None, 'edit': None}
+               'options': 'win.deck-options', 'custom-study': None, 'edit': None,
+               'notetypes': 'app.notetypes', 'notetype': None, 'template': None}
     name = actions[args.dialog]
     if args.dialog == 'custom-study':
         from retain.dialogs import custom_study
@@ -95,6 +100,14 @@ def open_dialog(window):
 
         note_id = app.collection.find_notes('deck:Spanish')[0]
         add_edit.present_edit(app, window, note_id)
+    elif args.dialog in ('notetype', 'template'):
+        from retain.dialogs import notetypes
+
+        busiest = max(app.collection.notetypes(),
+                      key=lambda notetype: app.collection.notetype_use(notetype.id))
+        dialog = notetypes.present(app, window, busiest.id)
+        if args.dialog == 'template':
+            dialog.navigation_view.get_visible_page().show_template(0)
     elif args.dialog == 'import' and os.environ.get('RETAIN_IMPORT_FILE'):
         from retain.dialogs import import_export
 

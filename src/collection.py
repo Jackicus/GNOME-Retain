@@ -450,31 +450,178 @@ class Collection(GObject.Object):
             self._touch('notetypes')
         return notetype
 
-    def update_notetype(self, notetype, deck_id=None):
-        """Store changed fields, templates or CSS, and bring its notes' cards into line:
-        cards for templates that now generate are added (into `deck_id`, else the note's
-        first card's deck), cards of templates that no longer exist are removed. A field
-        added gets '' in every note; a field removed loses its contents."""
-        with self.undoable(_('Edit Note Type')):
-            old = self.notetype(notetype.id)
+    def update_notetype(self, notetype, deck_id=None, label=None):
+        """Store a note type's changed name, fields, templates or CSS, and bring its notes
+        and cards into line, as Anki does (rslib/src/notetype/schemachange.rs): one undo
+        step, called `label` (Edit Note Type by default).
+
+        Fields and templates are matched to the stored ones by the ords the NoteType's
+        editing methods keep; a NoteType whose fields or templates were replaced by hand
+        has its fields matched by name and its templates by position. Each note's fields
+        are reordered to match: a field added is empty, a field deleted loses its contents.
+        The sort field is recomputed. A template deleted takes its cards with it, reviewed
+        or not; a template moved takes its cards' ords along; then every note gets the
+        cards its fields now call for (into `deck_id`, else the note's first card's deck),
+        and a card a template change has left empty is removed when it was never reviewed
+        and is not the note's last card (Anki keeps them all for its Empty Cards tool,
+        which Retain has not). Raises CollectionError for a type without fields or
+        templates, with duplicate or empty field names, or whose change would leave notes
+        without a card."""
+        if not notetype.fields:
+            raise CollectionError(_('A note type needs at least one field.'))
+        if not notetype.templates:
+            raise CollectionError(_('A note type needs at least one card template.'))
+        names = [field['name'] for field in notetype.fields]
+        if any(not name for name in names) or len({n.lower() for n in names}) < len(names):
+            raise CollectionError(_('Each field needs a name of its own.'))
+        old = self.notetype(notetype.id)
+        if old is None:
+            raise CollectionError(_('The note type no longer exists.'))
+        notetype.sort_field = max(0, min(notetype.sort_field or 0, len(notetype.fields) - 1))
+        field_ords = _ords(notetype.field_ords, len(notetype.fields), len(old.fields))
+        if field_ords is None:
+            old_names = old.field_names()
+            field_ords = [old_names.index(name) if name in old_names else None
+                          for name in names]
+        template_ords = list(range(len(old.templates)))
+        if notetype.kind == 'standard':
+            template_ords = _ords(notetype.template_ords, len(notetype.templates),
+                                  len(old.templates))
+            if template_ords is None:
+                template_ords = [index if index < len(old.templates) else None
+                                 for index in range(len(notetype.templates))]
+        fields_changed = field_ords != list(range(len(old.fields)))
+        with self.undoable(label or _('Edit Note Type')):
             self._remember('notetypes', 'notetypes', [notetype.id])
             notetype.modified = int(time.time())
             self._update('notetypes', notetype.to_row())
-            if old is not None and old.field_names() != notetype.field_names():
-                self._remap_fields(old, notetype)
-            for note in self._notes_of_type(notetype.id):
-                self._generate_cards(note, notetype, deck_id)
+            notes = self._notes_of_type(notetype.id)
+            with_cards = self._notes_with_cards([note.id for note in notes])
+            if fields_changed or notetype.sort_field != old.sort_field:
+                for note in notes:
+                    self._remember('notes', 'notes', [note.id])
+                    if fields_changed:
+                        note.fields = [note.fields[ord] if ord is not None
+                                       and ord < len(note.fields) else '' for ord in field_ords]
+                    self._store_note(note, notetype)
+                self._touch('notes')
+            if notetype.kind == 'standard':
+                self._carry_cards(notetype, notes, template_ords, len(old.templates))
+            fronts = [card['qfmt'] for card in notetype.templates]
+            if (fields_changed or None in template_ords
+                    or fronts != [card['qfmt'] for card in old.templates]):
+                for note in notes:
+                    self._generate_cards(note, notetype, deck_id, keep_one=True)
+            orphans = len(with_cards - self._notes_with_cards(with_cards))
+            if orphans:
+                raise CollectionError(ngettext(
+                    'This would leave {n} note without a card.',
+                    'This would leave {n} notes without a card.', orphans).format(n=orphans))
+            self._touch('notetypes')
+        notetype.mark_stored()
+
+    def _notes_with_cards(self, note_ids):
+        """Those of the notes that have a card, as a set."""
+        found = set()
+        for chunk in _chunks(note_ids):
+            marks = ','.join('?' * len(chunk))
+            found.update(row[0] for row in self.db.execute(
+                f'SELECT DISTINCT note_id FROM cards WHERE note_id IN ({marks})', chunk))
+        return found
+
+    def _carry_cards(self, notetype, notes, template_ords, old_count):
+        """Remove the cards of templates deleted and renumber those of templates moved."""
+        kept = {ord for ord in template_ords if ord is not None}
+        moved = {ord: index for index, ord in enumerate(template_ords)
+                 if ord is not None and ord != index}
+        removed = [ord for ord in range(old_count) if ord not in kept]
+        note_ids = [note.id for note in notes]
+        if removed:
+            marks = ','.join('?' * len(removed))
+            doomed = []
+            for chunk in _chunks(note_ids):
+                note_marks = ','.join('?' * len(chunk))
+                doomed.extend(row['id'] for row in self.db.execute(
+                    f'SELECT id FROM cards WHERE note_id IN ({note_marks}) AND ord IN ({marks})',
+                    chunk + removed))
+            if doomed:
+                self.remove_cards(doomed, orphans=False)
+        if moved:
+            marks = ','.join('?' * len(moved))
+            ids = []
+            for chunk in _chunks(note_ids):
+                note_marks = ','.join('?' * len(chunk))
+                ids.extend(row['id'] for row in self.db.execute(
+                    f'SELECT id FROM cards WHERE note_id IN ({note_marks}) AND ord IN ({marks})',
+                    chunk + list(moved)))
+            self._remember('cards', 'cards', ids)
+            now = int(time.time())
+            for card_id in ids:
+                # Negative first, so that two cards trading ords never meet.
+                self.db.execute('UPDATE cards SET ord = -1 - ord, modified = ? WHERE id = ?',
+                                (now, card_id))
+            for old_ord, new_ord in moved.items():  # no other card has a negative ord
+                self.db.execute('UPDATE cards SET ord = ? WHERE ord = ?',
+                                (new_ord, -1 - old_ord))
+            self._touch('cards')
+
+    def rename_notetype(self, notetype_id, name):
+        """Rename a note type (a name no other type has)."""
+        name = (name or '').strip()
+        notetype = self.notetype(notetype_id)
+        if notetype is None:
+            raise CollectionError(_('The note type no longer exists.'))
+        if not name:
+            raise CollectionError(_('A note type needs a name.'))
+        other = self.notetype_by_name(name)
+        if other is not None and other.id != notetype_id:
+            raise CollectionError(
+                _('A note type called “{name}” already exists.').format(name=other.name))
+        if name == notetype.name:
+            return
+        with self.undoable(_('Rename Note Type')):
+            self._remember('notetypes', 'notetypes', [notetype_id])
+            self.db.execute('UPDATE notetypes SET name = ?, modified = ? WHERE id = ?',
+                            (name, int(time.time()), notetype_id))
             self._touch('notetypes')
 
-    def _remap_fields(self, old, new):
-        """Carry each note's field contents across a change of fields, matched by name."""
-        old_names = old.field_names()
-        new_names = new.field_names()
-        for note in self._notes_of_type(new.id):
-            self._remember('notes', 'notes', [note.id])
-            values = dict(zip(old_names, note.fields, strict=False))
-            note.fields = [values.get(name, '') for name in new_names]
-            self._store_note(note, new)
+    def new_notetype(self, source, name):
+        """Store a new note type made from `source` (a NoteType: a stock one, or a stored
+        one to clone), called `name`, which no other type may have. Returns it."""
+        name = (name or '').strip()
+        if not name:
+            raise CollectionError(_('A note type needs a name.'))
+        if self.notetype_by_name(name) is not None:
+            raise CollectionError(
+                _('A note type called “{name}” already exists.').format(name=name))
+        notetype = source.copy()
+        notetype.id = None
+        notetype.original_id = None
+        notetype.name = name
+        notetype.mark_stored()
+        return self.add_notetype(notetype)
+
+    def template_use(self, notetype_id, ord):
+        """How many cards a standard type's template (by index) has."""
+        return self.db.execute(
+            'SELECT COUNT(*) FROM cards JOIN notes ON notes.id = cards.note_id '
+            'WHERE notes.notetype_id = ? AND cards.ord = ?', (notetype_id, ord)).fetchone()[0]
+
+    def field_use(self, notetype_id, index):
+        """How many notes of the type have something in a field (by index)."""
+        count = 0
+        for row in self.db.execute('SELECT fields FROM notes WHERE notetype_id = ?',
+                                   (notetype_id,)):
+            values = row['fields'].split(template.FIELD_SEPARATOR)
+            if index < len(values) and values[index].strip():
+                count += 1
+        return count
+
+    def sample_note(self, notetype_id):
+        """A note of the type to preview its cards with (the latest), or None."""
+        row = self.db.execute('SELECT * FROM notes WHERE notetype_id = ? ORDER BY id DESC '
+                              'LIMIT 1', (notetype_id,)).fetchone()
+        return Note.from_row(row) if row else None
 
     def remove_notetype(self, notetype_id):
         """Delete a note type and every note of it."""
@@ -748,10 +895,10 @@ class Collection(GObject.Object):
         else:
             self._update('notes', note.to_row())
 
-    def _generate_cards(self, note, notetype, deck_id=None):
+    def _generate_cards(self, note, notetype, deck_id=None, keep_one=False):
         """Add the cards the note's fields call for and remove the ones they no longer do
         (a cloze deleted); the ones with reviews are kept whatever the template says, as
-        Anki keeps them."""
+        Anki keeps them. With `keep_one`, the note's last card is never removed."""
         wanted = set(template.cards_for_note(notetype.kind, notetype.templates,
                                              _field_map(notetype, note.fields)))
         if not wanted and notetype.kind in ('cloze', 'occlusion'):
@@ -772,6 +919,8 @@ class Collection(GObject.Object):
             self._touch('cards')
         stale = [card for ord, card in existing.items()
                  if ord not in wanted and card.reps == 0]
+        if keep_one and stale and not wanted and len(stale) == len(existing):
+            stale = sorted(stale, key=lambda card: card.ord)[1:]
         if stale:
             self.remove_cards([card.id for card in stale], orphans=False)
 
@@ -1124,6 +1273,18 @@ def _field_map(notetype, fields):
     return dict(zip(notetype.field_names(), fields, strict=False))
 
 
+def _ords(ords, count, old_count):
+    """A NoteType's field or template ords when they still describe its `count` fields or
+    templates against the stored type's `old_count` (each None or a distinct old index),
+    else None."""
+    if ords is None or len(ords) != count:
+        return None
+    known = [ord for ord in ords if ord is not None]
+    if len(set(known)) != len(known) or any(not 0 <= ord < old_count for ord in known):
+        return None
+    return list(ords)
+
+
 def _pad_fields(fields, count):
     fields = [value or '' for value in list(fields)[:count]]
     return fields + [''] * (count - len(fields))
@@ -1144,6 +1305,13 @@ def _(text):
     import gettext
 
     return gettext.gettext(text)
+
+
+def ngettext(singular, plural, count):
+    """gettext.ngettext, bound late as _() is."""
+    import gettext
+
+    return gettext.ngettext(singular, plural, count)
 
 
 def remove_tree(path):

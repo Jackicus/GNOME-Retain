@@ -6,9 +6,6 @@ what it does not do yet, roughly in the order it should be done.
 - **Sync.** Nothing syncs. AnkiWeb has no public API; a sync of our own needs a protocol and
   a server (or a folder-based one over Syncthing/Nextcloud: the collection is one SQLite file
   plus media, so a last-writer-wins folder sync with a lock file is the cheap first step).
-- **Note type editor.** Note types come from the stock set and from imports; there is no
-  dialog to add fields or edit templates and CSS (the collection supports it:
-  `update_notetype`). Needed: a Manage Note Types dialog with a template editor and preview.
 - **Accessibility pass.** No `a11y_check.py` walkthrough yet (Music Sleeve has one); Orca has
   not read the review page. The WebKit card face has no accessible tree: an "Read Card Aloud"
   or a text mirror for screen readers is worth adding.

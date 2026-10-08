@@ -18,6 +18,13 @@ shapes itself and ignores the template's script.
         .to_row() -> dict          a notetypes row (schema.py), fields and templates as JSON
         NoteType.from_row(row)     from a sqlite3.Row or a dict with the columns
         .copy()                    a deep copy (with the same id: set it to None for a clone)
+        editing, on a copy that Collection.update_notetype() then stores:
+        .add_field(name), .rename_field(i, name), .move_field(i, j), .remove_field(i),
+        .set_sort_field(i), .add_template(name=None), .rename_template(i, name),
+        .move_template(i, j), .remove_template(i)    NoteTypeError for an edit refused
+        .template_problem(i) -> str or None          why a card template would not work
+    NoteTypeError                  an edit refused, its message a sentence
+    clean_field_name(name) -> str  a field name as Anki keeps it
     STOCK_KINDS                    basic, basic-reversed, basic-optional-reversed,
                                    basic-typed, cloze, occlusion
     stock(kind) -> NoteType        a fresh stock type, its name translated
@@ -25,6 +32,11 @@ shapes itself and ignores the template's script.
     is_image_occlusion(notetype) -> bool
     occlusion_shapes(text) -> [dict]   the shapes in an Occlusion field
     occlusion_field(shapes) -> str     the inverse
+
+The editing methods keep `field_ords` and `template_ords` (each field's and template's index
+in the stored type, None for one added), so the collection knows what moved, went or came,
+as Anki's ordinals tell it. Renaming a field rewrites the templates' references to it
+(template.rename_fields); deleting one removes them.
 
 A shape is a dict with 'ordinal' (the cloze number; 0 for a text label, which makes no card),
 'shape' (rect, ellipse, polygon or text), 'left', 'top', 'width' and 'height' (fractions of
@@ -39,7 +51,10 @@ import copy
 import json
 import re
 import time
+import unicodedata
 from gettext import gettext as _
+
+from . import template
 
 DEFAULT_CSS = (
     '.card {\n'
@@ -106,6 +121,21 @@ _OCCLUSION_AFMT = (_OCCLUSION_HEAD + '{{#Back Extra}}<div>{{Back Extra}}</div>{{
                    + _OCCLUSION_SCRIPT)
 
 
+RESERVED_NAMES = ('FrontSide',) + template.SPECIAL_FIELDS
+
+
+class NoteTypeError(ValueError):
+    """An edit a note type cannot take: the message is a sentence for the user."""
+
+
+def clean_field_name(name):
+    """A field name as Anki keeps it: NFC, trimmed, without `: { } "` and without a leading
+    `# / ^` (which templates would read as a conditional)."""
+    name = unicodedata.normalize('NFC', name or '')
+    name = re.sub(r'[:{}"]', '', name).strip()
+    return name.lstrip('#/^').strip()
+
+
 class NoteType:
     """A note type: a name, fields, card templates and CSS (see the module docstring)."""
 
@@ -120,6 +150,10 @@ class NoteType:
         self.sort_field = sort_field
         self.original_id = original_id
         self.modified = int(time.time()) if modified is None else modified
+        # Where each field and template was in the stored type (None: added since), kept
+        # by the editing methods for Collection.update_notetype(); not stored.
+        self.field_ords = list(range(len(self.fields)))
+        self.template_ords = list(range(len(self.templates)))
 
     def __repr__(self):
         return f'NoteType({self.name!r}, kind={self.kind!r}, id={self.id!r})'
@@ -159,10 +193,175 @@ class NoteType:
 
     def copy(self):
         """A deep copy, with the same id; set it to None for a new type."""
-        return NoteType(
+        twin = NoteType(
             id=self.id, name=self.name, kind=self.kind, fields=copy.deepcopy(self.fields),
             templates=copy.deepcopy(self.templates), css=self.css, sort_field=self.sort_field,
             original_id=self.original_id, modified=self.modified)
+        twin.field_ords = list(self.field_ords)
+        twin.template_ords = list(self.template_ords)
+        return twin
+
+    def mark_stored(self):
+        """Forget the edits' history: the fields and templates are as stored now."""
+        self.field_ords = list(range(len(self.fields)))
+        self.template_ords = list(range(len(self.templates)))
+
+    # -- editing (Collection.update_notetype() stores the result) -----------------------------
+
+    @property
+    def has_templates_to_edit(self):
+        """Whether templates can be added and removed: a standard type's (a cloze type has
+        its one)."""
+        return self.kind not in ('cloze', 'occlusion')
+
+    def _field_name(self, name, index=None):
+        name = clean_field_name(name)
+        if not name:
+            raise NoteTypeError(_('A field needs a name.'))
+        if name in RESERVED_NAMES:
+            raise NoteTypeError(_('“{name}” is a name templates use for something else.')
+                                .format(name=name))
+        for other, field in enumerate(self.fields):
+            if other != index and field['name'].lower() == name.lower():
+                raise NoteTypeError(_('A field called “{name}” already exists.')
+                                    .format(name=field['name']))
+        return name
+
+    def add_field(self, name):
+        """Append a field (every note gets it empty); its index."""
+        self.fields.append({'name': self._field_name(name), 'description': ''})
+        self.field_ords.append(None)
+        return len(self.fields) - 1
+
+    def rename_field(self, index, name):
+        """Rename a field, and every template's references to it."""
+        name = self._field_name(name, index)
+        old = self.fields[index]['name']
+        if name != old:
+            self.fields[index]['name'] = name
+            self._rewrite_templates({old: name})
+
+    def move_field(self, index, new_index):
+        """Move a field to `new_index` (its contents move with it in every note)."""
+        new_index = max(0, min(new_index, len(self.fields) - 1))
+        sort = self.fields[self.sort_field] if 0 <= self.sort_field < len(self.fields) else None
+        self.fields.insert(new_index, self.fields.pop(index))
+        self.field_ords.insert(new_index, self.field_ords.pop(index))
+        if sort is not None:
+            self.sort_field = next(i for i, field in enumerate(self.fields) if field is sort)
+
+    def remove_field(self, index):
+        """Delete a field, its contents in every note, and the templates' references to it
+        (a front left with no field gets the first one, as Anki does)."""
+        if len(self.fields) <= 1:
+            raise NoteTypeError(_('A note type needs at least one field.'))
+        name = self.fields.pop(index)['name']
+        self.field_ords.pop(index)
+        if self.sort_field == index:
+            self.sort_field = 0
+        elif self.sort_field > index:
+            self.sort_field -= 1
+        self._rewrite_templates({name: None})
+
+    def set_sort_field(self, index):
+        """The field the browser sorts by and shows first."""
+        self.sort_field = index
+
+    def _rewrite_templates(self, renames):
+        first = self.fields[0]['name']
+        cloze = not self.has_templates_to_edit
+        for card in self.templates:
+            card['qfmt'] = template.rename_fields(card['qfmt'], renames)
+            card['afmt'] = template.rename_fields(card['afmt'], renames)
+            try:
+                if cloze:
+                    if not template.cloze_fields_in(card['qfmt']):
+                        card['qfmt'] += '{{cloze:' + first + '}}'
+                    if not template.cloze_fields_in(card['afmt']):
+                        card['afmt'] += '{{cloze:' + first + '}}'
+                elif not template.field_names_in(card['qfmt']):
+                    card['qfmt'] += '{{' + first + '}}'
+            except template.TemplateError:
+                pass  # left for template_problem() to report
+
+    def _template_name(self, name, index=None):
+        name = (name or '').strip()
+        if not name:
+            raise NoteTypeError(_('A card template needs a name.'))
+        for other, card in enumerate(self.templates):
+            if other != index and card['name'].lower() == name.lower():
+                raise NoteTypeError(_('A card template called “{name}” already exists.')
+                                    .format(name=card['name']))
+        return name
+
+    def new_template_name(self):
+        """'Card N', the first N free."""
+        names = {card['name'].lower() for card in self.templates}
+        number = len(self.templates) + 1
+        while _('Card {number}').format(number=number).lower() in names:
+            number += 1
+        return _('Card {number}').format(number=number)
+
+    def add_template(self, name=None):
+        """Append a card template, a reverse card to start from (the second field asked,
+        the first on the back) so it makes no duplicate of the first card; its index. The
+        cards it calls for are made when the type is stored."""
+        if not self.has_templates_to_edit:
+            raise NoteTypeError(_('A cloze note type has one card template.'))
+        name = self._template_name(name or self.new_template_name())
+        names = self.field_names()
+        front = names[1] if len(names) > 1 else names[0]
+        self.templates.append(_template(
+            name, '{{' + front + '}}', '{{FrontSide}}\n\n<hr id=answer>\n\n{{' + names[0] + '}}'))
+        self.template_ords.append(None)
+        return len(self.templates) - 1
+
+    def rename_template(self, index, name):
+        self.templates[index]['name'] = self._template_name(name, index)
+
+    def move_template(self, index, new_index):
+        """Move a card template (its cards follow it)."""
+        new_index = max(0, min(new_index, len(self.templates) - 1))
+        self.templates.insert(new_index, self.templates.pop(index))
+        self.template_ords.insert(new_index, self.template_ords.pop(index))
+
+    def remove_template(self, index):
+        """Delete a card template; its cards go when the type is stored."""
+        if not self.has_templates_to_edit:
+            raise NoteTypeError(_('A cloze note type has one card template.'))
+        if len(self.templates) <= 1:
+            raise NoteTypeError(_('A note type needs at least one card template.'))
+        self.templates.pop(index)
+        self.template_ords.pop(index)
+
+    def template_problem(self, index):
+        """What stops a card template from working, as a sentence, or None: a conditional
+        left open or closed twice, a field that does not exist, a front without a field (a
+        standard type's) or without a cloze (a cloze type's), as Anki checks them."""
+        card = self.templates[index]
+        names = set(self.field_names())
+        sides = ((_('The front'), card['qfmt']), (_('The back'), card['afmt']))
+        for side, text in sides:
+            try:
+                referenced = template.field_names_in(text)
+            except template.TemplateError as error:
+                if error.problem == 'unopened':
+                    return _('{side} closes {{{{/{key}}}}}, which is not open.').format(
+                        side=side, key=error.key)
+                return _('{side} opens {{{{#{key}}}}} and does not close it.').format(
+                    side=side, key=error.key)
+            unknown = sorted(name for name in referenced if name not in names)
+            if unknown:
+                return _('{side} names “{field}”, which is not a field.').format(
+                    side=side, field=unknown[0])
+        first = self.fields[0]['name'] if self.fields else ''
+        if not self.has_templates_to_edit:
+            if not template.cloze_fields_in(card['qfmt']):
+                return _('The front needs a cloze, such as {{{{cloze:{field}}}}}.').format(
+                    field=first)
+        elif not template.field_names_in(card['qfmt']):
+            return _('The front needs a field, such as {{{{{field}}}}}.').format(field=first)
+        return None
 
 
 def _fields(*names):

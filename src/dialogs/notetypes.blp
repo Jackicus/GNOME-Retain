@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+// Manage Note Types (dialogs/notetypes.py): the list of note types, the first page of a
+// navigation view; a type's page (notetype_page.blp) and a card template's
+// (template_page.blp) are pushed over it. The rows are made in code.
+template $RetainNoteTypesDialog: Adw.Dialog {
+  title: _("Note Types");
+  content-width: 560;
+  content-height: 680;
+  follows-content-size: false;
+
+  // The dialog's own toasts: the window's would be under it.
+  child: Adw.ToastOverlay toast_overlay {
+    child: Adw.NavigationView navigation_view {
+      Adw.NavigationPage {
+        title: _("Note Types");
+        tag: "list";
+
+        child: Adw.ToolbarView {
+          [top]
+          Adw.HeaderBar {
+            [start]
+            Button add_button {
+              icon-name: "list-add-symbolic";
+              tooltip-text: _("Add Note Type");
+            }
+          }
+
+          content: Adw.PreferencesPage {
+            Adw.PreferencesGroup list_group {
+              description: _("A note type says which fields a note has and which cards it makes from them");
+            }
+          };
+        };
+      }
+    };
+  };
+}
