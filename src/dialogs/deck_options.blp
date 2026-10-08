@@ -61,6 +61,20 @@ template $RetainDeckOptionsDialog: Adw.PreferencesDialog {
     }
 
     Adw.PreferencesGroup {
+      title: _("Workload");
+
+      Adw.SwitchRow load_balancing_row {
+        title: _("Load Balancing");
+        subtitle: _("Spread reviews evenly over the coming days");
+      }
+
+      // The seven weekday rows are added in code (dialogs/deck_options.py).
+      Adw.ExpanderRow easy_days_row {
+        title: _("Easy Days");
+      }
+    }
+
+    Adw.PreferencesGroup {
       title: _("Studying");
 
       Adw.ComboRow study_mode_row {
