@@ -73,10 +73,41 @@ sync: the [user guide](docs/user-guide.md) says how to move it.
 
 <kbd>Ctrl</kbd> <kbd>?</kbd> shows every shortcut.
 
+## How it works
+
+**Your collection is one SQLite file** (`collection.sqlite`), holding decks, note types,
+notes, cards and every review you have made. Pictures and sounds sit in a `media/` folder
+beside it, and a backup is taken at most every six hours (the last ten are kept). Nothing
+leaves your computer.
+
+**Notes make cards.** A note holds fields (Front, Back; or Expression, Meaning, Reading), and
+its note type's templates turn those fields into one or more cards: `{{Front}}`
+replacements, conditionals, cloze deletions, hints, type-in answers and furigana, rendered
+the way Anki renders them. A WebKit view draws the card face, so shared decks with their own
+HTML and CSS look as their authors meant; everything around it is GTK and libadwaita.
+
+**FSRS decides when a card comes back.** Every card has a stability (how many days until
+your chance of recalling it falls to 90%) and a difficulty. Each grade updates both, and
+the next review is set for the day your chance of remembering drops to your desired
+retention (90% by default; one slider per deck). The Optimize button fits FSRS's parameters
+to your own review history.
+
+**Every change can be undone.** Edits, grades, deletions and moves are recorded as undo
+steps, so a mistake costs Ctrl+Z rather than a confirmation dialog.
+
+**Anki's formats both ways.** `.apkg` and `.colpkg` packages, old and new (zstd), are
+read with their note types, media, scheduling and history, and written back in a form Anki
+and AnkiDroid open. CSV and TSV files import with Anki's header lines.
+
+In the code, the model (`collection.py`, `scheduler.py`, `fsrs.py`, `template.py`,
+`search.py`, `apkg.py`) has no GTK in it and is tested without a display; the window, pages
+and dialogs in `src/` sit on top. `CLAUDE.md` has the full map.
+
 ## Contributing
 
 `scripts/check.sh` runs the lint, the build and the tests; `CLAUDE.md` describes the code and
-its rules, `docs/decisions.md` the choices and why. Translations go in `po/`.
+its rules, `docs/decisions.md` the choices and why. Translations go in `po/`. Bugs and ideas
+go in the [issue tracker](https://github.com/Jackicus/GNOME-Retain/issues).
 
 ## Licence
 
