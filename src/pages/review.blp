@@ -63,6 +63,13 @@ template $RetainReviewPage: Adw.NavigationPage {
         }
       }
 
+      // Shown when a card asks for speech no installed voice can give.
+      [top]
+      Adw.Banner voice_banner {
+        button-label: _("_How to Install");
+        use-markup: false;
+      }
+
       content: Stack content_stack {
         StackPage {
           name: "study";
@@ -373,6 +380,11 @@ menu more_menu {
     item {
       label: _("_Replay Sound");
       action: "review.replay";
+    }
+
+    item {
+      label: _("Read _Aloud");
+      action: "review.read-aloud";
     }
   }
 

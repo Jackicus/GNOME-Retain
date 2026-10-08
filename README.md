@@ -26,6 +26,8 @@ back, schedules with FSRS, and keeps the clutter out.
 - **Anki decks in and out:** `.apkg` and `.colpkg` with pictures, sounds, note types,
   scheduling and review history; shared decks render as Anki renders them.
 - **Search** across every card with Anki's syntax, bulk actions with undo.
+- **Cards read aloud** in your system's voices, each language in its own (Anki's `{{tts}}`
+  works too), with the furigana's reading for Japanese.
 - **Card-mining apps** such as Yomitan add cards straight into Retain through the AnkiConnect
   API they already speak (off until you turn it on; only programs on your computer).
 - **Statistics:** a heatmap of the year, what is due ahead, retention, card counts,
@@ -71,6 +73,7 @@ sync: the [user guide](docs/user-guide.md) says how to move it.
 | Again, Hard, Good, Easy | <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> |
 | Edit, Suspend, Bury, Mark, Flag | <kbd>E</kbd> <kbd>S</kbd> <kbd>B</kbd> <kbd>M</kbd> <kbd>F</kbd> |
 | Card information | <kbd>I</kbd> |
+| Replay sound, read aloud | <kbd>R</kbd> <kbd>V</kbd> |
 | Undo | <kbd>Ctrl</kbd> <kbd>Z</kbd> |
 
 <kbd>Ctrl</kbd> <kbd>?</kbd> shows every shortcut.

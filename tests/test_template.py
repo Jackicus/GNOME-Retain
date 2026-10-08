@@ -129,11 +129,34 @@ class FilterTest(unittest.TestCase):
         self.assertEqual(rendered, HINT_LINK + 'Note</a><div id="hint1" class=hint '
                          'style="display: none">plain</div>')
 
-    def test_tts_and_unknown_filters_give_the_plain_field(self):
+    def test_tts_renders_anki_tag_and_unknown_filters_give_the_plain_field(self):
         fields = {'Front': 'hello'}
-        self.assertEqual(template.render_side('{{tts en_US:Front}}', fields), 'hello')
+        self.assertEqual(template.render_side('{{tts en_US:Front}}', fields),
+                         '[anki:tts lang=en_US]hello[/anki:tts]')
+        self.assertEqual(template.render_side('{{tts ja_JP voices=A,B speed=0.8:Front}}', fields),
+                         '[anki:tts lang=ja_JP voices=A,B speed=0.8]hello[/anki:tts]')
         self.assertEqual(template.render_side('{{tts-voices:}}', fields), '')
         self.assertEqual(template.render_side('{{shout:Front}}', fields), 'hello')
+
+    def test_tts_tags_and_their_order_with_sounds(self):
+        html = ('[sound:a.mp3]<b>x</b>[anki:tts lang=ja_JP speed=0.8]<b>猫</b>[/anki:tts]'
+                '[anki:tts lang=en_US voices=Amy]cat[/anki:tts]')
+        self.assertEqual(template.tts_tags(html), [('ja_JP', [], 0.8, '猫'),
+                                                   ('en_US', ['Amy'], 1.0, 'cat')])
+        self.assertEqual(template.av_tags(html), [
+            ('sound', 'a.mp3'), ('tts', ('ja_JP', [], 0.8, '猫')),
+            ('tts', ('en_US', ['Amy'], 1.0, 'cat'))])
+        self.assertEqual(template.strip_tts_tags(html), '[sound:a.mp3]<b>x</b>')
+
+    def test_speech_text_reads_furigana_in_japanese(self):
+        self.assertEqual(template.speech_text('<ruby>一日<rt>ついたち</rt></ruby>です', 'ja_JP'),
+                         'ついたちです')
+        self.assertEqual(template.speech_text('一日[ついたち]は 月曜日[げつようび]', 'ja'),
+                         'ついたちはげつようび')
+        self.assertEqual(template.speech_text('<ruby>猫<rt>ねこ</rt></ruby> cat', 'en_US'),
+                         '猫 cat')
+        self.assertEqual(template.speech_text('私[...]学生です[sound:a.mp3]', 'ja'),
+                         '私 学生です')
 
     def test_furigana(self):
         fields = {'Reading': '日本語[にほんご]を 話[はな]す [sound:a.mp3]'}

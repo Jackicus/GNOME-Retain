@@ -92,6 +92,7 @@ install_data(
   'search.py',
   'shortcuts.py',
   'sidebar.py',
+  'speech.py',
   'stats.py',
   'template.py',
   'window.py',
@@ -125,6 +126,7 @@ install_data(
 install_data(
   'widgets/__init__.py',
   'widgets/audio.py',
+  'widgets/speech.py',
   'widgets/card_view.py',
   'widgets/charts.py',
   'widgets/counts.py',

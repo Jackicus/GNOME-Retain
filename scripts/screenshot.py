@@ -8,7 +8,7 @@
                           [--page KEY] [--study [DECK]] [--answer] [--sidebar]
                           [--dialog add|new-deck|options|custom-study|import|export|
                                     preferences|about|shortcuts|edit]
-                          [--search QUERY] [--scroll PX]
+                          [--search QUERY] [--scroll PX] [--setting KEY=VALUE …]
 
 Builds nothing itself: run meson install -C build (or scripts/run.sh) first, and run it
 through scripts/headless.sh so the window opens on a private display. The demo collection
@@ -39,6 +39,7 @@ parser.add_argument('--dialog', choices=['add', 'new-deck', 'options', 'custom-s
                                          'export', 'preferences', 'about', 'shortcuts', 'edit'])
 parser.add_argument('--search', metavar='QUERY')
 parser.add_argument('--scroll', metavar='PX', type=int, default=0)
+parser.add_argument('--setting', metavar='KEY=VALUE', action='append', default=[])
 args = parser.parse_args()
 width, height = (int(n) for n in args.size.split('x'))
 
@@ -184,6 +185,9 @@ def on_activate(_app):
 
 def plan():
     window = app.get_active_window()
+    for setting in args.setting:
+        key, _sep, value = setting.partition('=')
+        app.settings.set_value(key, GLib.Variant.parse(None, value, None, None))
     steps.append((resolve_page, 400))
     if window.split_view.get_collapsed() and args.sidebar:
         steps.append((lambda w: w.split_view.set_show_content(False), 300))

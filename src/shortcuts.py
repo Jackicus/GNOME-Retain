@@ -47,6 +47,7 @@ REVIEW = {
     'flag': 'f',
     'info': 'i',
     'replay-audio': 'r',
+    'read-aloud': 'v',
     'delete': 'Delete',
     'flag-1': '<primary>1',
     'flag-2': '<primary>2',
@@ -121,6 +122,7 @@ def sections():
             (_('Set a Flag'), '<primary>1 <primary>2 <primary>3 <primary>4'),
             (_('Card Information'), REVIEW['info']),
             (_('Replay Sound'), REVIEW['replay-audio']),
+            (_('Read Aloud'), REVIEW['read-aloud']),
             (_('Delete Note'), REVIEW['delete']),
         ]),
         (_('Browsing'), [
