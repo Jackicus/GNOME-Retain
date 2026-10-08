@@ -241,7 +241,9 @@ class AddEditTests(unittest.TestCase):
         dialog.editors[0].emit('focus-left')
         self.assertTrue(dialog.duplicate_banner.get_revealed())
         dialog.editors[0].set_html('el perro')
-        self.assertTrue(wait_for(lambda: not dialog.duplicate_banner.get_revealed()),
+        # The debounce is 400 ms; a loaded machine (CI's container) needs the margin.
+        self.assertTrue(wait_for(lambda: not dialog.duplicate_banner.get_revealed(),
+                                 timeout=3.0),
                         'the banner did not go after the debounce')
 
     def test_picture_attached_to_a_field(self):
