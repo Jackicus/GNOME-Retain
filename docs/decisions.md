@@ -76,6 +76,23 @@ on a recognized one. Distractors come from the deck, alike in part of speech, ta
 length, never sharing an alternative with the answer; four options, three when the deck
 has too few.
 
+## Load balancing as Anki does it, per preset
+
+Anki 24.11's load balancer, and its easy days, with the same weights: a day in the fuzz range
+is drawn with weight (1/reviews)^2.15 × (1/days)^3, times a sibling factor and an easy-day
+factor, by the card's fuzz seed (so the buttons' preview and the answer agree); intervals over
+90 days are fuzzed as before. Three differences. The switch is on the preset, not
+collection-wide as Anki's `loadBalancerEnabled` (exported in the preset as well, and read
+back; an Anki package has no such field and imports as on). A day with nothing due counts as
+half a review instead of taking full weight whatever its factors, which in Anki lets an
+empty Minimum day or a sibling's day take cards. Suspended cards do not count as load. The
+estimate under the retention slider is a simulation (workload.simulate: fsrs-rs's simulator in
+outline, with its default rating proportions, the preset's limits and the balancer) rather
+than a ratio of intervals, because what someone choosing a retention needs is reviews a day
+and cards remembered for their own cards; a year of a sampled 2,500 cards runs in a thread in
+well under a second. Anki's offer to reschedule existing cards when easy days change is left
+out: the balancer shapes cards as they are answered.
+
 ## Speech: the system's voices, never the wrong language
 
 Cards are read by the system's voices through Spiel (GNOME's speech framework) and, second,

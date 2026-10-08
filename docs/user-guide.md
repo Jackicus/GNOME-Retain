@@ -133,9 +133,23 @@ top narrows it to one deck.
 ## Deck options
 
 Each deck uses a preset, which several decks can share. The options are the daily limits
-(new cards and reviews per day), the desired retention (higher means more reviews and fewer
-forgotten cards), and **Optimize Parameters**, which fits the memory model to your own review
-history once it has 400 reviews or more. Under *Advanced*: learning and relearning steps, the
+(new cards and reviews per day), the workload, the desired retention (higher means more
+reviews and fewer forgotten cards), and **Optimize Parameters**, which fits the memory model
+to your own review history once it has 400 reviews or more.
+
+Under the retention slider, an estimate of what it costs: the reviews a day over the next year
+and how many of the preset's cards you would remember at its end. Retain works it out by
+playing the preset's cards forward with the memory model, the daily limits and your other
+settings, so it changes as you move the slider or change them. It is an estimate: real days
+vary with how you answer.
+
+*Load Balancing* (on by default) evens out the days. When a card is due back in about a month,
+any day within a few days of that is as good; Retain picks one that has fewer reviews due on
+the preset's decks, so you don't get a heavy day followed by a light one. With *Bury Siblings*
+on, it also keeps a note's cards off the same day. *Easy Days* make some weekdays lighter:
+set a day to *Reduced* for fewer reviews then, or *Minimum* for almost none. They work through
+load balancing, so they need it on, and they shape when cards are scheduled from now on, not
+cards already scheduled. Under *Advanced*: learning and relearning steps, the
 order of new cards, where new cards go among reviews, whether a card's siblings are buried for
 the day when you see one, the leech threshold and action, the maximum interval, and the raw
 FSRS parameters.
