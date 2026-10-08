@@ -8,8 +8,10 @@
 
 do_handle_local_options reads --demo first; do_startup opens the collection (collection.py,
 in the data directory default_data_dir() names, or RETAIN_DATA_DIR; `--demo` uses build/demo,
-an invented collection, never the real one) and makes the Scheduler over it; do_activate
-builds the Window (imported only then).
+an invented collection, never the real one) and makes the Scheduler over it, and starts the
+AnkiConnect API (ankiconnect.py) when card-mining apps are allowed (the ankiconnect-enabled
+setting; a port already taken, by Anki itself, is toasted when the switch is turned on);
+do_activate builds the Window (imported only then).
 `.apkg` and `.colpkg` files given on the command line (or opened from Files) open the import
 dialog. app.* actions: add, new-deck, import, export, undo, preferences, shortcuts, about,
 quit. Every message for the user goes through toast(); every error through report(), which
@@ -21,6 +23,7 @@ import os
 import pathlib
 import sys
 from gettext import gettext as _
+from gettext import ngettext
 
 import gi
 
@@ -56,6 +59,7 @@ class Application(Adw.Application):
         self.settings = None  # in do_startup: GSettings
         self.collection = None  # in do_startup
         self.scheduler = None  # in do_startup
+        self.ankiconnect = None  # ankiconnect.Server while card-mining apps are allowed
         self._pending_files = []
         self.add_main_option('demo', 0, GLib.OptionFlags.NONE, GLib.OptionArg.NONE,
                              _('Show an invented collection (build/demo), not yours'), None)
@@ -87,10 +91,14 @@ class Application(Adw.Application):
                                    self.settings.get_int('learn-ahead-minutes'))
         self.settings.connect('changed::day-start-hour', self._on_day_start_changed)
         self.settings.connect('changed::learn-ahead-minutes', self._on_learn_ahead_changed)
+        self.settings.connect('changed::ankiconnect-enabled', self._on_ankiconnect_changed)
+        self.settings.connect('changed::ankiconnect-key', self._on_ankiconnect_key_changed)
         self._add_actions()
         for name, accels in ACCELS.items():
             self.set_accels_for_action(name, accels)
         self._load_css()
+        if self.settings.get_boolean('ankiconnect-enabled'):
+            self.start_ankiconnect(quiet=True)
 
     def _data_dir(self):
         if self.demo:
@@ -123,6 +131,7 @@ class Application(Adw.Application):
             self.import_file(file)
 
     def do_shutdown(self):
+        self.stop_ankiconnect()
         if self.collection is not None:
             try:
                 self.collection.close()
@@ -146,6 +155,58 @@ class Application(Adw.Application):
         self.scheduler.learn_ahead_minutes = settings.get_int(key)
 
     # -- actions ---------------------------------------------------------------------------
+
+    # -- card-mining apps (ankiconnect.py) ---------------------------------------------------
+
+    def start_ankiconnect(self, quiet=False):
+        """Answer AnkiConnect requests; when the port is taken (Anki is open), say so."""
+        from . import ankiconnect
+
+        if self.ankiconnect is not None:
+            return
+        api = ankiconnect.Api(self.collection, browse=self._browse_for_api,
+                              edit=self._edit_for_api, added=self._added_by_api,
+                              key=self.settings.get_string('ankiconnect-key'))
+        server = ankiconnect.Server(api)
+        try:
+            server.start()
+        except OSError as error:
+            log.warning('AnkiConnect API not started: %s', error)
+            if not quiet:
+                self.toast(_('Port {port} is in use: is Anki open?').format(
+                    port=ankiconnect.PORT))
+            return
+        self.ankiconnect = server
+
+    def stop_ankiconnect(self):
+        if self.ankiconnect is not None:
+            self.ankiconnect.stop()
+            self.ankiconnect = None
+
+    def _on_ankiconnect_changed(self, settings, key):
+        if settings.get_boolean(key):
+            self.start_ankiconnect()
+        else:
+            self.stop_ankiconnect()
+
+    def _on_ankiconnect_key_changed(self, settings, key):
+        if self.ankiconnect is not None:
+            self.ankiconnect.api.key = settings.get_string(key)
+
+    def _browse_for_api(self, query):
+        self.do_activate()
+        self.get_active_window().browse(query)
+
+    def _edit_for_api(self, note_id):
+        from .dialogs import add_edit
+
+        self.do_activate()
+        add_edit.present_edit(self, self.get_active_window(), note_id)
+
+    def _added_by_api(self, note_ids):
+        text = ngettext('Note added by another app', '{n} notes added by another app',
+                        len(note_ids)).format(n=len(note_ids))
+        self.toast(text, undo=True)
 
     def _add_actions(self):
         for name, callback in (

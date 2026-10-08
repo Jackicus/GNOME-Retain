@@ -81,6 +81,21 @@ template $RetainPreferencesDialog: Adw.PreferencesDialog {
     }
 
     Adw.PreferencesGroup {
+      title: _("Other Apps");
+      description: _("Yomitan and other tools that add cards to Anki through AnkiConnect can add them to Retain while it is open. Web pages are always refused.");
+
+      Adw.SwitchRow ankiconnect_row {
+        title: _("Allow Card-Mining Apps");
+        subtitle: _("Answer AnkiConnect requests on this computer");
+      }
+
+      Adw.PasswordEntryRow ankiconnect_key_row {
+        title: _("Key (Optional)");
+        sensitive: bind ankiconnect_row.active;
+      }
+    }
+
+    Adw.PreferencesGroup {
       title: _("Collection");
 
       Adw.ActionRow location_row {

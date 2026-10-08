@@ -26,6 +26,8 @@ back, schedules with FSRS, and keeps the clutter out.
 - **Anki decks in and out:** `.apkg` and `.colpkg` with pictures, sounds, note types,
   scheduling and review history; shared decks render as Anki renders them.
 - **Search** across every card with Anki's syntax, bulk actions with undo.
+- **Card-mining apps** such as Yomitan add cards straight into Retain through the AnkiConnect
+  API they already speak (off until you turn it on; only programs on your computer).
 - **Statistics:** a heatmap of the year, what is due ahead, retention, card counts,
   intervals, and when in the day you study.
 - **Undo everything,** from a grade to a deleted deck.

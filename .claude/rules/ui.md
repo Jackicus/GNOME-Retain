@@ -13,7 +13,7 @@ paths:
 
 Platform behaviour worth knowing is in `gtk-notes.md`.
 
-- The window's seams (window.py): `show_root(key)`, `push(page)`, `pop()`,
+- The window's seams (window.py): `show_root(key)`, `browse(query)`, `push(page)`, `pop()`,
   `study(deck_id, session=None)`, `current_deck_id()`, `forget_deck(id)`, `add_toast(toast)`,
   `set_dialog_open(bool)`, `set_menu_deck(id)`, `undone(label)`; the app's (main.py):
   `app.collection`, `app.scheduler`, `app.settings`, `app.toast(text, undo=False)`,

@@ -116,6 +116,19 @@ semicolons. Opening an `.apkg` from Files does the same.
 **Export…** writes a deck or the whole collection as an Anki deck, with or without scheduling,
 or as a tab-separated text file.
 
+## Adding cards from other apps
+
+Yomitan, asbplayer and other tools that make cards in Anki through the AnkiConnect add-on can
+make them in Retain instead. Turn on *Allow Card-Mining Apps* in Preferences, then point the
+tool at its usual address, `http://127.0.0.1:8765`. In Yomitan that is Settings → Anki → Enable
+Anki integration; choose a Retain deck and note type there, and map their fields. Each note
+added shows a toast with Undo.
+
+Retain answers only while it is open, and only to programs on this computer: browser
+extensions and local scripts. Web pages are always refused. To be stricter, set a key in
+Preferences and give the tool the same key. If Anki itself is open, it holds the address, and
+Retain says the port is in use.
+
 ## Where your data is
 
 The collection lives in `~/.local/share/retain/` (`collection.sqlite` and `media/`); backups
