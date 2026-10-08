@@ -1,0 +1,15 @@
+{
+  "name": "python3-speechd",
+  "x-comment": "Speech Dispatcher's Python client alone (the daemon is the host's, reached through xdg-run/speech-dispatcher).",
+  "buildsystem": "simple",
+  "build-commands": [
+    "site=$(python3 -c 'import sysconfig; print(sysconfig.get_path(\"purelib\", vars={\"base\": \"'${FLATPAK_DEST}'\"}))') && install -Dm644 -t \"$site/speechd\" src/api/python/speechd/__init__.py src/api/python/speechd/client.py && printf 'SPD_SPAWN_CMD = \"/usr/bin/speech-dispatcher\"\\n' > \"$site/speechd/paths.py\""
+  ],
+  "sources": [
+    {
+      "type": "archive",
+      "url": "https://github.com/brailcom/speechd/releases/download/0.12.1/speech-dispatcher-0.12.1.tar.gz",
+      "sha256": "b14a5238d287d2dcce4dd42bbd66ca65fa228e7e683708267f7b34036f7ba4b4"
+    }
+  ]
+}
