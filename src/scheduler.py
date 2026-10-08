@@ -14,7 +14,9 @@
 The memory model is fsrs.py; the per-deck settings (limits, steps, retention) deck_config.py.
 A new card goes through the deck's learning steps (minutes apart), then graduates to a
 review card due in the number of days FSRS gives for the deck's desired retention, with
-Anki's fuzz so cards learned together drift apart. A review card answered Again lapses into
+Anki's fuzz so cards learned together drift apart; with the preset's load balancing on, the
+day within the fuzz range is the one workload.py picks for an even load (and fewer reviews
+on its easy days) rather than a uniform one. A review card answered Again lapses into
 the relearning steps and comes back with a shorter interval; Hard, Good and Easy give it a
 longer one. A card answered within a day of its last review updates its memory with FSRS's
 short-term rule. `counts()` and a session cap new and due cards by the deck's daily limits,
@@ -32,7 +34,7 @@ import time
 from gettext import gettext as _
 from gettext import ngettext
 
-from . import days, fsrs
+from . import days, fsrs, workload
 from .fsrs import AGAIN, EASY, GOOD, HARD
 
 RATINGS = (AGAIN, HARD, GOOD, EASY)
@@ -300,17 +302,21 @@ class Scheduler:
             self._graduate(after, rating, config, params, after)
 
     def _graduate(self, after, rating, config, params, before):
-        """Make a card a review card due in the interval FSRS gives, fuzzed."""
+        """Make a card a review card due in the interval FSRS gives, fuzzed or balanced."""
         after.state = 'review'
         after.left = 0
-        after.interval = float(self._interval(after, rating, config, params, before))
+        after.interval = float(self._interval(after, rating, config, params, before,
+                                              balance=config.load_balancing))
         after.due = self.collection.today(after.last_review) + int(after.interval)
 
-    def _interval(self, after, rating, config, params, before):
+    def _interval(self, after, rating, config, params, before, balance=False):
         """The next interval in days: FSRS's for the stability, kept in order (Hard shorter
         than Good, Good than Easy, each by a day at least), fuzzed the same way for every
-        rating (so the order holds), never shorter than a remembered review card's last one."""
+        rating (so the order holds), never shorter than a remembered review card's last one.
+        With `balance`, the day within the fuzz range is the load balancer's, and a Good or
+        Easy interval is kept a day past the balanced one of the rating below."""
         interval = self._raw_interval(after.stability, config, params)
+        lower_memory = None
         if before.state == 'review' and rating != AGAIN:
             if before.interval and rating != HARD:
                 interval = max(interval, int(before.interval) + 1)
@@ -329,7 +335,46 @@ class Scheduler:
         seed = f'{after.id}:{after.reps + 1}'
         minimum = int(before.interval) + 1 if (before.state == 'review' and rating == GOOD
                                               and before.interval) else 1
+        if balance:
+            if lower_memory is not None:  # the rating just below: Hard for Good, Good for Easy
+                below = after.copy()
+                below.stability = lower_memory.stability
+                minimum = max(minimum, self._interval(below, rating - 1, config, params,
+                                                      before, balance=True) + 1)
+            balanced = self._balanced(after, interval, seed, config, minimum)
+            if balanced is not None:
+                return balanced
         return fsrs.fuzzed_interval(interval, seed, config.maximum_interval, minimum=minimum)
+
+    def _balanced(self, after, interval, seed, config, minimum):
+        """The load balancer's interval for a card of this preset (workload.py), or None."""
+        today = self.collection.today(after.last_review)
+        deck_ids = workload.preset_decks(self.collection, config.id)
+        load = self.due_load(deck_ids, today, exclude=after.id)
+        siblings = self._sibling_days(after, today) if config.bury_siblings else ()
+        return workload.balanced_interval(
+            interval, seed, lambda target: load.get(target, 0), today, config.easy_days,
+            minimum, config.maximum_interval, siblings)
+
+    def due_load(self, deck_ids, today, exclude=None):
+        """{days from today: review cards due then} over the balancer's days ahead, for the
+        unsuspended cards of the decks (but `exclude`, the card being answered)."""
+        if not deck_ids:
+            return {}
+        marks = ','.join('?' * len(deck_ids))
+        rows = self.collection.db.execute(
+            f'SELECT due, COUNT(*) FROM cards WHERE state = ? AND suspended = 0 AND id != ? '
+            f'AND due >= ? AND due < ? AND deck_id IN ({marks}) GROUP BY due',
+            ['review', exclude or 0, today, today + workload.BALANCE_DAYS, *deck_ids])
+        return {due - today: count for due, count in rows}
+
+    def _sibling_days(self, card, today):
+        """The days from today the card's siblings are due on, as review cards."""
+        rows = self.collection.db.execute(
+            'SELECT due FROM cards WHERE note_id = ? AND id != ? AND state = ? '
+            'AND due >= ? AND due < ?',
+            (card.note_id, card.id, 'review', today, today + workload.BALANCE_DAYS))
+        return [row[0] - today for row in rows]
 
     def _raw_interval(self, stability, config, params):
         return fsrs.next_interval(params, stability, config.desired_retention,

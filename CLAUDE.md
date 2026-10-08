@@ -41,6 +41,7 @@ Application (main.py)    app.settings, app.collection; app.* actions; app.toast(
 │                        widgets/speech.py speaks (Spiel, else Speech Dispatcher)
 ├─ media.py              the media folder: adding files, naming, references in fields
 ├─ stats.py              the queries behind Statistics
+├─ workload.py           load balancing, easy days, the workload simulation (a thread)
 └─ optimizer.py          fits FSRS parameters to the revlog (a thread)
 ```
 
@@ -51,9 +52,9 @@ directory, `--demo` to build/demo). GSettings: one schema for both builds.
 ## Rules
 
 - **Model code has no GTK**: collection.py, scheduler.py, fsrs.py, template.py, answers.py,
-  search.py, apkg.py, ankiconnect.py, media.py, speech.py, stats.py, days.py, deck_config.py and
-  optimizer.py import GLib/GObject at most, and are tested without a display. Pages and widgets
-  call them; they never reach into widgets.
+  search.py, apkg.py, ankiconnect.py, media.py, speech.py, stats.py, days.py, deck_config.py,
+  workload.py and optimizer.py import GLib/GObject at most, and are tested without a display.
+  Pages and widgets call them; they never reach into widgets.
 - **Everything undoable**: a change to the collection goes through `Collection.undoable(label)`
   so `app.undo()` (Ctrl+Z) can put it back; a destructive action shows a toast with Undo, not a
   confirmation, except deleting a deck or a note type (an `AdwAlertDialog`).

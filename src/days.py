@@ -12,6 +12,7 @@ number; `today()` is the current one.
     today(day_start_hour=4, now=None) -> int
     day_start(day_number, day_start_hour=4) -> float   the Unix time the day begins
     date_of(day_number) -> datetime.date
+    weekday(day_number) -> int                        0 for Monday to 6 for Sunday
 """
 
 import datetime
@@ -42,3 +43,8 @@ def day_start(number, day_start_hour=DEFAULT_DAY_START_HOUR):
 def date_of(number):
     """The calendar date day `number` is counted as."""
     return datetime.date.fromordinal(number)
+
+
+def weekday(number):
+    """The weekday of day `number`: 0 for Monday to 6 for Sunday (ordinal 1 was a Monday)."""
+    return (number - 1) % 7

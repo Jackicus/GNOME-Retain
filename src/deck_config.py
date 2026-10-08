@@ -12,13 +12,15 @@ Steps are minutes. `fsrs_parameters` is None for the FSRS-6 defaults, else the 2
 numbers (optimizer.py). `new_mix` says where new cards go among the day's reviews: mixed in,
 after them, or before them. `leech_action` is 'tag' (the note gets the leech tag) or
 'suspend'. `study_mode` is how the review page asks: flip the card, type the answer, or
-choose it (answers.py).
+choose it (answers.py). `load_balancing` spreads review intervals over the lightest days
+of their fuzz range, and `easy_days` (seven values, Monday first: 1.0 Normal, 0.5 Reduced,
+0.0 Minimum) asks it for fewer reviews on some weekdays (workload.py).
 """
 
 import json
 import time
 
-from . import fsrs
+from . import fsrs, workload
 
 DEFAULT_ID = 1
 LEECH_TAG = 'leech'
@@ -37,6 +39,8 @@ FIELDS = {
     'maximum_interval': 36500,
     'fsrs_parameters': None,
     'study_mode': 'flip',  # or 'type', 'choice' (answers.py); Retain's own, not exported
+    'load_balancing': True,
+    'easy_days': [workload.NORMAL] * 7,  # Monday first: NORMAL, REDUCED or MINIMUM
 }
 
 
@@ -99,6 +103,10 @@ class DeckConfig:
             leech_action='suspend' if lapse.get('leechAction') == 0 else 'tag',
             maximum_interval=int(rev.get('maxIvl', 36500)),
             fsrs_parameters=params,
+            # Anki's own switch is the collection's loadBalancerEnabled; a preset Retain
+            # exported carries it too.
+            load_balancing=bool(dconf.get('loadBalancerEnabled', True)),
+            easy_days=workload.normalize_easy_days(dconf.get('easyDaysPercentages')),
         )
         config.desired_retention = min(max(config.desired_retention, 0.7), 0.99)
         return config
@@ -120,4 +128,6 @@ class DeckConfig:
                       'leechFails': self.leech_threshold, 'minInt': 1, 'mult': 0},
             'desiredRetention': self.desired_retention,
             'fsrsParams6': list(self.fsrs_parameters or []),
+            'easyDaysPercentages': list(self.easy_days),
+            'loadBalancerEnabled': bool(self.load_balancing),
         }
