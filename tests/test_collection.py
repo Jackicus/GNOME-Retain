@@ -15,7 +15,7 @@ from unittest import mock
 
 from tests import ROOT  # noqa: F401
 from tests.support import Clock, add_basic, add_cloze, temporary_collection
-from retain import notetypes
+from retain import notetypes, schema
 from retain.collection import (BACKUP_COUNT, UNDO_LIMIT, Collection, CollectionError,
                                default_data_dir, natural_key)
 from retain.deck_config import DEFAULT_ID, LEECH_TAG, DeckConfig
@@ -992,7 +992,7 @@ class MaintenanceTest(CollectionCase):
         self.collection.set('favourite', {'deck': 1, 'tags': ['a', 'b']})
         self.assertEqual(self.collection.get('favourite'), {'deck': 1, 'tags': ['a', 'b']})
         self.assertEqual(self.collection.get('missing', 'fallback'), 'fallback')
-        self.assertEqual(self.collection.get('schema_version'), 1)
+        self.assertEqual(self.collection.get('schema_version'), schema.VERSION)
 
 
 if __name__ == '__main__':

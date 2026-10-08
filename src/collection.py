@@ -20,6 +20,10 @@ undo, and emit `changed` with what kind of thing changed ('cards', 'notes', 'dec
 show, what an answer does) is scheduler.py's, which calls record_answer() here; searches are
 search.py's syntax; rendering a card's two sides is render_card(), on template.py.
 
+Deleting a note, card, deck, note type or preset leaves a grave (schema.py; `graves()`), so
+that a sync deletes it on the other devices too; undoing the deletion removes the grave. Every
+change to a row sets its `modified` time, which a sync compares.
+
 The collection is not thread-safe: a thread that needs it (an import) opens its own
 Collection on the same path and closes it; the main one then emits `changed` itself.
 """
@@ -226,19 +230,28 @@ class Collection(GObject.Object):
     # -- lifecycle ----------------------------------------------------------------------
 
     def _init_collection(self):
+        """A new collection gets the default preset, the stock note types and the Default
+        deck, modified at 0: a sync (sync.py) then lets any real edit of them win over these
+        untouched ones. An older one is brought up to the schema's version."""
         if self.get('created') is None:
             self.set('created', int(time.time()))
             self.set('schema_version', schema.VERSION)
+        else:
+            version = self.get('schema_version', 1)
+            if version < schema.VERSION:
+                self.set('schema_version', schema.upgrade(self.db, version))
         if not self.db.execute('SELECT 1 FROM deck_configs LIMIT 1').fetchone():
-            config = DeckConfig(id=DEFAULT_ID, name='Default')
-            self._insert('deck_configs', config.to_row())
+            row = DeckConfig(id=DEFAULT_ID, name='Default').to_row()
+            row['modified'] = 0
+            self._insert('deck_configs', row)
         if not self.db.execute('SELECT 1 FROM notetypes LIMIT 1').fetchone():
             for notetype in notetypes.all_stock():
                 self._add_notetype_row(notetype)
+            self.db.execute('UPDATE notetypes SET modified = 0')
         if not self.db.execute('SELECT 1 FROM decks LIMIT 1').fetchone():
             self._insert('decks', Deck(id=1, name='Default', config_id=DEFAULT_ID,
                                        description='', collapsed=0, original_id=None,
-                                       modified=int(time.time())).to_row())
+                                       modified=0).to_row())
 
     def close(self):
         """Close the file, after a backup when something changed and the last one is old."""
@@ -307,7 +320,7 @@ class Collection(GObject.Object):
         restore = {'label': label, 'cards': {}, 'notes': {}, 'decks': {}, 'notetypes': {},
                    'configs': {}, 'new_cards': set(), 'new_notes': set(), 'new_decks': set(),
                    'new_notetypes': set(), 'new_configs': set(), 'revlog': set(),
-                   'config': {}}
+                   'config': {}, 'graves': {}}
         self._open = restore
         self.db.execute('BEGIN')
         try:
@@ -361,6 +374,7 @@ class Collection(GObject.Object):
                     self.db.execute('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)',
                                     (key, value))
                 self._touch('config')
+            self._unbury(restore['graves'])
         return restore['label']
 
     def _remember(self, kind, table, ids):
@@ -474,6 +488,7 @@ class Collection(GObject.Object):
             self._remember('notes', 'notes', [note.id])
             values = dict(zip(old_names, note.fields, strict=False))
             note.fields = [values.get(name, '') for name in new_names]
+            note.modified = int(time.time())
             self._store_note(note, new)
 
     def remove_notetype(self, notetype_id):
@@ -484,6 +499,7 @@ class Collection(GObject.Object):
             self.remove_notes(note_ids)
             self._remember('notetypes', 'notetypes', [notetype_id])
             self.db.execute('DELETE FROM notetypes WHERE id = ?', (notetype_id,))
+            self._bury('notetype', [(str(notetype_id), '')])
             self._touch('notetypes')
 
     def notetype_use(self, notetype_id):
@@ -535,10 +551,11 @@ class Collection(GObject.Object):
             deck_ids = [row['id'] for row in self.db.execute(
                 'SELECT id FROM decks WHERE config_id = ?', (config_id,))]
             self._remember('decks', 'decks', deck_ids)
-            self.db.execute('UPDATE decks SET config_id = ? WHERE config_id = ?',
-                            (DEFAULT_ID, config_id))
+            self.db.execute('UPDATE decks SET config_id = ?, modified = ? WHERE config_id = ?',
+                            (DEFAULT_ID, int(time.time()), config_id))
             self._remember('configs', 'deck_configs', [config_id])
             self.db.execute('DELETE FROM deck_configs WHERE id = ?', (config_id,))
+            self._bury('config', [(str(config_id), '')])
             self._touch('configs')
             self._touch('decks')
 
@@ -660,6 +677,7 @@ class Collection(GObject.Object):
             card_ids = self._card_ids_in_decks(ids)
             self.remove_cards(card_ids)
             self._remember('decks', 'decks', ids)
+            self._bury('deck', [(str(child_id), self.deck(child_id).name) for child_id in ids])
             for child_id in ids:
                 self.db.execute('DELETE FROM decks WHERE id = ?', (child_id,))
             if not self.db.execute('SELECT 1 FROM decks LIMIT 1').fetchone():
@@ -790,6 +808,8 @@ class Collection(GObject.Object):
                 self._remember('cards', 'cards', card_ids)
                 self.db.execute(f'DELETE FROM cards WHERE note_id IN ({marks})', chunk)
                 self._remember('notes', 'notes', chunk)
+                self._bury('note', [(row['guid'], '') for row in self.db.execute(
+                    f'SELECT guid FROM notes WHERE id IN ({marks})', chunk)])
                 self.db.execute(f'DELETE FROM notes WHERE id IN ({marks})', chunk)
             self._touch('notes')
             self._touch('cards')
@@ -803,6 +823,10 @@ class Collection(GObject.Object):
                 note_ids.update(row['note_id'] for row in self.db.execute(
                     f'SELECT note_id FROM cards WHERE id IN ({marks})', chunk))
                 self._remember('cards', 'cards', chunk)
+                self._bury('card', [(card_key(row['guid'], row['ord']), '') for row in
+                                    self.db.execute(
+                    f'SELECT notes.guid, cards.ord FROM cards JOIN notes ON notes.id = '
+                    f'cards.note_id WHERE cards.id IN ({marks})', chunk)])
                 self.db.execute(f'DELETE FROM cards WHERE id IN ({marks})', chunk)
             if orphans:
                 orphaned = [note_id for note_id in note_ids if not self.db.execute(
@@ -837,8 +861,9 @@ class Collection(GObject.Object):
             self._remember('notes', 'notes', list(note_ids))
             for chunk in _chunks(note_ids):
                 marks = ','.join('?' * len(chunk))
-                self.db.execute(f'UPDATE notes SET marked = ? WHERE id IN ({marks})',
-                                [int(bool(marked))] + list(chunk))
+                self.db.execute(
+                    f'UPDATE notes SET marked = ?, modified = ? WHERE id IN ({marks})',
+                    [int(bool(marked)), int(time.time())] + list(chunk))
             self._touch('notes')
 
     def find_duplicates(self, notetype_id, first_field, except_note=None):
@@ -1052,6 +1077,36 @@ class Collection(GObject.Object):
         rows = self.db.execute('SELECT * FROM revlog WHERE card_id = ? ORDER BY id', (card_id,))
         return [dict(row) for row in rows]
 
+    # -- graves (what sync.py deletes on the other devices) --------------------------------
+
+    def _bury(self, kind, entries):
+        """Record that the objects were deleted now: `entries` are (key, name), the key as
+        schema.py describes it. Undoing the deletion takes the graves away again."""
+        now = int(time.time())
+        for key, name in entries:
+            if self._open is not None and (kind, key) not in self._open['graves']:
+                row = self.db.execute('SELECT * FROM graves WHERE kind = ? AND key = ?',
+                                      (kind, key)).fetchone()
+                self._open['graves'][(kind, key)] = dict(row) if row else None
+            self.db.execute('INSERT OR REPLACE INTO graves (kind, key, name, deleted) '
+                            'VALUES (?, ?, ?, ?)', (kind, key, name or '', now))
+
+    def _unbury(self, graves):
+        """Put the graves table back as it was before an undo step's deletions."""
+        for (kind, key), row in graves.items():
+            if row is None:
+                self.db.execute('DELETE FROM graves WHERE kind = ? AND key = ?', (kind, key))
+            else:
+                self._insert('graves', row, replace=True)
+
+    def graves(self, kind=None):
+        """The graves (dicts with kind, key, name, deleted), of one kind or all."""
+        if kind is None:
+            rows = self.db.execute('SELECT * FROM graves ORDER BY kind, key')
+        else:
+            rows = self.db.execute('SELECT * FROM graves WHERE kind = ? ORDER BY key', (kind,))
+        return [dict(row) for row in rows]
+
     # -- rendering ------------------------------------------------------------------------
 
     def render_card(self, card, note=None, notetype=None):
@@ -1096,8 +1151,9 @@ class Collection(GObject.Object):
             fixed += self.db.execute(
                 'DELETE FROM cards WHERE note_id NOT IN (SELECT id FROM notes)').rowcount
             fixed += self.db.execute(
-                'UPDATE cards SET deck_id = ? WHERE deck_id NOT IN (SELECT id FROM decks)',
-                (default,)).rowcount
+                'UPDATE cards SET deck_id = ?, modified = ? '
+                'WHERE deck_id NOT IN (SELECT id FROM decks)',
+                (default, int(time.time()))).rowcount
             fixed += self.db.execute(
                 'DELETE FROM notes WHERE id NOT IN (SELECT note_id FROM cards)').rowcount
             fixed += self.db.execute(
@@ -1113,6 +1169,11 @@ class Collection(GObject.Object):
         with target:
             self.db.backup(target)
         target.close()
+
+
+def card_key(guid, ord):
+    """A card's identity across collections: its note's guid and its ord."""
+    return f'{guid}\x1f{int(ord)}'
 
 
 def normalize_deck_name(name):

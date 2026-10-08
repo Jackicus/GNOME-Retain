@@ -20,9 +20,17 @@ change: forget, set due); `state` the card's state before the review; `elapsed_d
 since the previous review; `scheduled_days` the interval given; `stability` and
 `difficulty` the memory state after; `duration_ms` how long the answer took; `kind` review,
 manual, or cram (a preview that changed nothing).
+
+A grave says something was deleted, so that a sync (sync.py) deletes it on the other devices
+rather than bringing it back: `kind` note, card, deck, notetype or config; `key` the note's
+guid, a card's note guid and ord joined with \\x1f, the id of the rest; `name` a deck's
+name (decks made apart on two devices match by name); `deleted` the time of the deletion.
+
+`VERSION` is the schema's version, kept in the config table as `schema_version`; upgrade()
+brings an older collection's tables up to it, one step per version.
 """
 
-VERSION = 1
+VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS config (
@@ -116,7 +124,39 @@ CREATE TABLE IF NOT EXISTS media (
     size INTEGER NOT NULL,
     added INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS graves (
+    kind TEXT NOT NULL,                -- note, card, deck, notetype, config
+    key TEXT NOT NULL,                 -- a guid, 'guid\\x1ford' for a card, else the id
+    name TEXT NOT NULL DEFAULT '',     -- a deck's name
+    deleted INTEGER NOT NULL,
+    PRIMARY KEY (kind, key)
+);
 """
+
+# What each version adds to the one before: SQL run by upgrade(), in order. (SCHEMA above
+# creates whatever is missing as well, so a step only has to do what CREATE IF NOT EXISTS
+# cannot: new columns, changed data.)
+UPGRADES = {
+    2: """
+CREATE TABLE IF NOT EXISTS graves (
+    kind TEXT NOT NULL,
+    key TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    deleted INTEGER NOT NULL,
+    PRIMARY KEY (kind, key)
+);
+""",
+}
+
+
+def upgrade(db, version):
+    """Run the steps from `version` (the collection's schema_version) up to VERSION; the
+    version reached. A collection newer than this code is left alone."""
+    for step in range(version + 1, VERSION + 1):
+        db.executescript(UPGRADES[step])
+        version = step
+    return version
 
 # Anki's flag colours, by number, as the HIG's named colours.
 FLAG_NAMES = {1: 'red', 2: 'orange', 3: 'green', 4: 'blue', 5: 'pink', 6: 'turquoise',
