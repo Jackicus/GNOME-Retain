@@ -75,6 +75,7 @@ configure_file(
 install_data(
   '__init__.py',
   'ankiconnect.py',
+  'answers.py',
   'apkg.py',
   'collection.py',
   'days.py',

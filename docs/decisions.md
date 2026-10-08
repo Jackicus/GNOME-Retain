@@ -62,6 +62,20 @@ requests whose Origin is a web page are refused, as is a Host other than the loo
 be required. Paths and URLs in storeMediaFile are refused: only the data a tool sends is
 stored. Error messages stay AnkiConnect's English, since clients match on them.
 
+## Study modes, graded by what they measure
+
+Flip stays the default; Type the Answer and Choose from Options are a deck option and a
+session switch. Typing is graded leniently (any alternative, kana for kanji, a typo in an
+English word as Hard, none for Japanese, where one kana is another word) and only *suggests*
+the grade, which the user can override: no answer list is complete. The gain from typing is
+honest grading more than production itself (covert and overt retrieval help memory alike;
+self-graders are overconfident). Multiple choice measures recognition, which is easier than
+recall and less durable, so a right pick suggests Good only in learning, where grades move
+short steps, and Hard on a review card, so FSRS does not stretch a recalled card's interval
+on a recognized one. Distractors come from the deck, alike in part of speech, tags and
+length, never sharing an alternative with the answer; four options, three when the deck
+has too few.
+
 ## Speech: the system's voices, never the wrong language
 
 Cards are read by the system's voices through Spiel (GNOME's speech framework) and, second,

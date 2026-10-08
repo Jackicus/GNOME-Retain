@@ -42,6 +42,26 @@ card, which comes back after a number of days. Review cards you fail go through 
 step. The schedule is FSRS, the algorithm Anki uses, which estimates how well you remember
 each card and aims for the deck's *desired retention* (90 % by default).
 
+### Study modes
+
+Deck Options → *Study Mode* sets how the deck's cards ask for their answer, and the review
+page's More menu changes it for one session:
+
+- **Flip the Card** (the default): think of the answer, show it, grade yourself.
+- **Type the Answer**: type it and press Enter. Retain is lenient: case, punctuation,
+  a leading *to*, *a* or *the* and notes in brackets don't matter, any one of "tall; high;
+  expensive" counts, and for Japanese the kana is as good as the kanji. It suggests a grade:
+  **Good** when right, **Hard** for a small typo in an English word, **Again** when wrong.
+  Space or Enter accepts it; 1 to 4 pick another, for an answer Retain didn't know was right.
+- **Choose from Options**: pick the answer from four (keys 1 to 4). The wrong options come
+  from the deck's other cards, chosen to look alike, so the right one isn't given away. A
+  right pick suggests **Good** while a card is being learned and **Hard** once it is a
+  review card: recognizing an answer is easier than recalling it, so it shouldn't stretch the
+  card's interval as much.
+
+Cards a mode can't ask, such as clozes, picture cards and answers longer than a phrase, are
+shown as Flip the Card.
+
 ### Hearing cards
 
 A card plays its sounds when it is shown. A card whose note type asks for speech, as Anki's

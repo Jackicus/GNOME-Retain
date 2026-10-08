@@ -17,11 +17,11 @@ from tests.support import add_basic, temporary_collection
 from gi.repository import Gio, GLib
 
 from retain import notetypes
-from retain.fsrs import AGAIN, GOOD, HARD
+from retain.fsrs import AGAIN, EASY, GOOD, HARD
 from retain.scheduler import Scheduler
 
-SETTINGS_KEYS = ('two-button-mode', 'show-intervals', 'show-remaining', 'auto-play-audio',
-                 'card-text-scale')
+SETTINGS_KEYS = ('read-aloud', 'two-button-mode', 'show-intervals', 'show-remaining',
+                 'auto-play-audio', 'card-text-scale')
 
 
 class StandInApp(Gio.Application):
@@ -47,8 +47,8 @@ class StandInApp(Gio.Application):
         return self.collection.undo()
 
 
-@requires_gtk
-class ReviewPageTest(unittest.TestCase):
+class PageTestCase(unittest.TestCase):
+    """A temporary collection with three Basic notes, the stand-in app, and the page."""
 
     @classmethod
     def setUpClass(cls):
@@ -83,6 +83,10 @@ class ReviewPageTest(unittest.TestCase):
 
     def card_text(self, page):
         return page.card_view._label.get_text()
+
+
+@requires_gtk
+class ReviewPageTest(PageTestCase):
 
     def test_question_shows(self):
         page = self.page()
@@ -293,6 +297,83 @@ class ReviewPageTest(unittest.TestCase):
         self.assertEqual(card_info.history(self.app, card)[0][1], 'Good')
         dialog = card_info.build(self.app, card)
         self.assertEqual(dialog.get_title(), 'Card Information')
+
+
+@requires_gtk
+class StudyModesTest(PageTestCase):
+    """Type the Answer and Choose from Options (answers.py) on the page."""
+
+    def setUp(self):
+        super().setUp()
+        for word, meaning in (('cuatro', 'four'), ('cinco', 'five')):
+            add_basic(self.collection, self.deck, word, meaning)
+
+    def mode_page(self, mode):
+        config = self.collection.config_for_deck(self.deck.id)
+        config.study_mode = mode
+        self.collection.update_deck_config(config)
+        return self.page()
+
+    def test_typing_the_answer_suggests_the_grade(self):
+        page = self.mode_page('type')
+        card_id = page.card.id
+        self.assertEqual(page._card_mode, 'type')
+        self.assertTrue(page.type_entry.get_visible())
+        page.type_entry.set_text('One!')
+        page.type_entry.emit('activate')
+        self.assertEqual(page.side, 'answer')
+        self.assertEqual(page.typed_verdict.get_text(), 'Correct')
+        self.assertEqual(page._suggested, GOOD)
+        page.run_key('show-answer')  # Space accepts the suggestion
+        self.assertEqual(self.collection.reviews_of(card_id)[0]['rating'], GOOD)
+
+    def test_a_typo_suggests_hard_and_a_wrong_answer_again(self):
+        page = self.mode_page('type')
+        page.type_entry.set_text('ane')
+        page.show_answer()
+        self.assertEqual((page._suggested, page.typed_verdict.get_text()), (AGAIN, 'Not quite'))
+        self.assertTrue(page.again_button.has_css_class('suggested-action'))
+        self.assertFalse(page.good_button.has_css_class('suggested-action'))
+        page.answer(EASY)  # the user overrides
+        self.assertEqual(page._suggested, GOOD)  # the next card starts afresh
+
+    def test_choosing_from_options(self):
+        page = self.mode_page('choice')
+        self.assertEqual(page._card_mode, 'choice')
+        self.assertTrue(page.choices_list.get_visible())
+        self.assertEqual(len(page._choices), 4)
+        right = next(index for index, (_html, correct) in enumerate(page._choices) if correct)
+        self.assertEqual(page._choices[right][0], 'one')
+        wrong = (right + 1) % 4
+        self.assertTrue(page.run_key(['again', 'hard', 'good', 'easy'][wrong]))  # key picks
+        self.assertEqual(page.side, 'answer')
+        self.assertEqual(page._suggested, AGAIN)
+        self.assertTrue(page.choices_list.get_row_at_index(right).has_css_class('success'))
+        self.assertTrue(page.choices_list.get_row_at_index(wrong).has_css_class('error'))
+
+    def test_a_right_pick_on_a_new_card_suggests_good(self):
+        page = self.mode_page('choice')
+        right = next(index for index, (_html, correct) in enumerate(page._choices) if correct)
+        page.pick(right)
+        self.assertEqual(page._suggested, GOOD)
+
+    def test_cards_the_mode_cannot_ask_are_flipped(self):
+        cloze = self.collection.notetype_by_name('Cloze')
+        deck = self.collection.add_deck('Clozes')
+        self.collection.add_note(cloze.id, deck.id, ['{{c1::uno}} dos', ''])
+        config = self.collection.config_for_deck(deck.id)
+        config.study_mode = 'type'
+        self.collection.update_deck_config(config)
+        page = self.page(deck)
+        self.assertEqual(page._card_mode, 'flip')
+        self.assertFalse(page.type_entry.get_visible())
+
+    def test_the_menu_switches_the_mode_for_the_session(self):
+        page = self.page()
+        self.assertEqual(page._card_mode, 'flip')
+        page.activate_action('review.mode', GLib.Variant('s', 'choice'))
+        self.assertEqual(page._card_mode, 'choice')
+        self.assertEqual(self.collection.config_for_deck(self.deck.id).study_mode, 'flip')
 
 
 if __name__ == '__main__':

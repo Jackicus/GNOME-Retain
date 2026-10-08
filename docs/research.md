@@ -92,6 +92,21 @@ needs Piper 1.7 and is not in Spiel's Piper provider; Open JTalk through Speech 
 (`sd_openjtalk`) reads kanji with pitch accent. Anki: `{{tts ja_JP voices=A,B speed=0.8:F}}`,
 voices a preference list, nothing on Linux without an add-on.
 
+## Study modes (October 2026)
+
+Short answer with feedback beats multiple choice for retention three days on (Kang,
+McDermott & Roediger 2007), though both beat restudy (Smith & Karpicke 2014; a recall-then-
+choose hybrid added little). Competitive distractors make multiple choice teach more (Little
+& Bjork 2014); lures read can be learned as facts unless feedback follows (Roediger & Marsh
+2005; Butler & Roediger 2008). Covert retrieval helps as much as overt (Smith, Roediger &
+Karpicke 2013); self-graders are overconfident (Dunlosky & Rawson 2012), the case for typed,
+checked answers. Duolingo's half-life regression pools exercise types unweighted (Settles &
+Meeder 2016); SuperMemo auto-grades multiple choice with an override; no app documents
+weighting recognition below recall. Item writing: plausible distractors alike in length and
+form, one right answer (Haladyna, Downing & Rodriguez 2002); three options are as reliable as
+four (Rodriguez 2005). Anki's typed answers (rslib typeanswer.rs) diff after NFC, with `ci`
+and `nc` options, and never grade.
+
 ## Sources
 
 Anki forums (threads 17042, 66053, 43692, 929, 30172, 3651, 20906, 6000, 41667, 23621,
