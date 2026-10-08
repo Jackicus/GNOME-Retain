@@ -34,13 +34,27 @@ only*; Hard and Easy stay on the keyboard.
 While studying: **E** edits the card, **S** suspends it (it will not come back until you
 unsuspend it in Browse), **B** buries it until tomorrow, **M** marks the note with a star,
 **F** or Ctrl+1 to Ctrl+4 flags it with a colour, **I** shows the card's information and
-review history, **R** replays its sound, Delete deletes the note, and **Ctrl+Z** undoes your
+review history, **R** replays its sound, **V** reads it aloud, Delete deletes the note, and **Ctrl+Z** undoes your
 last grade (or anything else you just did) and shows the card again.
 
 A new card goes through learning steps (one minute, then ten) before it graduates to a review
 card, which comes back after a number of days. Review cards you fail go through a relearning
 step. The schedule is FSRS, the algorithm Anki uses, which estimates how well you remember
 each card and aims for the deck's *desired retention* (90 % by default).
+
+### Hearing cards
+
+A card plays its sounds when it is shown. A card whose note type asks for speech, as Anki's
+`{{tts ja_JP:Front}}` does, has it read in a voice for that language. **Read Aloud** (V, or the
+More menu) reads any card, even without such a template: Japanese in a Japanese voice,
+English in an English one, so 猫 / *cat* is read by two voices. Where a card has furigana, the
+reading is what is spoken, so 一日 is read ついたち as the card means. Preferences has *Read
+Cards Aloud* to do this for every card as it is shown.
+
+The voices are your system's. Retain never reads a language in a voice of another; when no
+voice is installed for a card's language, a banner above the card says so and *How to
+Install* explains what to add: Speech Dispatcher (for Japanese, with its Open JTalk module,
+which reads kanji) or a Spiel speech provider such as eSpeak NG or Piper.
 
 When the deck is done for the day, **Study More…** offers to learn more new cards, review
 more cards that are due, go over cards you recently forgot, review ahead of time, or practise

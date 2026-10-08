@@ -31,6 +31,11 @@
       <default>true</default>
       <summary>Play a card's sound when it is shown</summary>
     </key>
+    <key name="read-aloud" type="b">
+      <default>false</default>
+      <summary>Read each card aloud</summary>
+      <description>Whether each side of a card is read aloud as it is shown, each language in a voice of its own, after the card's own sounds and speech.</description>
+    </key>
     <key name="two-button-mode" type="b">
       <default>false</default>
       <summary>Answer with Again and Good only</summary>

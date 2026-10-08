@@ -16,8 +16,9 @@ the card's text colour, success/warning/error: read from the widget's style, aga
 Adw.StyleManager turns dark or light), the note type's own CSS in a `<style>` of the document,
 and `<body class="card nightMode">` in dark, as Anki marks it. The document's base URI is the
 media folder (`file://…/media/`), so an `<img src="name">` loads; `[sound:…]` tags become a
-small note mark (the page plays them, widgets/audio.py); `scale` is the view's zoom. MathJax
-is not bundled: `\\(…\\)` and `\\[…\\]` stay as written, no network is used. JavaScript is on
+small note mark and `[anki:tts]…[/anki:tts]` tags a speaker mark, their text not shown (the
+page plays and speaks them, widgets/audio.py); `scale` is the view's zoom. MathJax is not
+bundled: `\\(…\\)` and `\\[…\\]` stay as written, no network is used. JavaScript is on
 (cloze and other templates use it); the view takes no keyboard focus, so the page's keys
 reach its controller. For an image occlusion note, `occlusion` is {'shapes': [...]
 (notetypes.occlusion_shapes), 'ordinal': N}: a script in the document lays a div over the
@@ -59,6 +60,7 @@ if not os.environ.get('RETAIN_NO_WEBKIT'):
 _TYPE_ANSWER = re.compile(r'<span class="retain-type-answer"[^>]*>\s*</span>')
 _TYPE_RESULT = re.compile(r'<span class="retain-type-answer-result"[^>]*>\s*</span>')
 _SOUND = re.compile(r'\[sound:([^\]]+)\]')
+_TTS = re.compile(r'\[anki:tts\b[^\]]*\].*?\[/anki:tts\]', re.DOTALL)
 
 # Lays the occlusion shapes over the image, in pixels of the image as shown, again when the
 # view is resized. window.RETAIN_OCCLUSION holds the shapes, the side and the ordinal.
@@ -359,6 +361,7 @@ class RetainCardView(Adw.Bin):
         html = self._question if self._side == 'question' else self._answer
         html = _TYPE_ANSWER.sub('', html)
         html = _TYPE_RESULT.sub(self._typed or '', html)
+        html = _TTS.sub(_speech_mark(), html)
         return _SOUND.sub(lambda match: _sound_mark(match[1]), html)
 
     def _load(self):
@@ -397,6 +400,11 @@ def _sound_mark(name):
     return f'<span class="retain-sound" title="{title}">&#9834;</span>'
 
 
+def _speech_mark():
+    title = html_module.escape(_('Spoken'), quote=True)
+    return f'<span class="retain-sound" title="{title}">&#128264;</span>'
+
+
 def _scaled(scale):
     attributes = Pango.AttrList()
     if scale and scale != 1.0:
@@ -426,7 +434,7 @@ def html_to_markup(html):
     elements as line breaks, `<img>` as "[image]", `<hr>` as a rule, entities decoded, other
     tags dropped. The tags are balanced whatever the HTML did."""
     html = _DROP.sub('', html or '')
-    html = _SOUND.sub('♪', html)
+    html = _SOUND.sub('♪', _TTS.sub('', html))
     out = []
     stack = []  # open Pango tags
 

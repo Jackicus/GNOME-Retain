@@ -35,6 +35,7 @@ class HtmlToMarkupTest(unittest.TestCase):
         self.assertEqual(convert('see <img src="x.png"> &amp; &lt;b&gt; &eacute;&nbsp;'),
                          'see [image] &amp; &lt;b&gt; é')
         self.assertEqual(convert('hola [sound:hola.mp3]'), 'hola ♪')
+        self.assertEqual(convert('猫[anki:tts lang=ja_JP]猫[/anki:tts]'), '猫')
 
     def test_clozes_and_typed_answer_spans(self):
         self.assertEqual(

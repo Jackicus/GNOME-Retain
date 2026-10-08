@@ -6,14 +6,14 @@
     present(app, parent) -> PreferencesDialog
 
 One page, General (preferences.blp). Reviewing: the review page's switches (show-remaining,
-show-intervals, auto-play-audio, two-button-mode) and the card's text size (card-text-scale,
-shown as a percentage). Day: the hour a new day starts (day-start-hour) and how many
-minutes a learning card may be shown early (learn-ahead-minutes). Other Apps: whether
-card-mining apps may add notes through the AnkiConnect API (ankiconnect-enabled), and the
-key they must send (ankiconnect-key). Collection: where the
-collection is, with Open Folder; the backups, with Back Up Now (Collection.backup(force=True))
-and the folder; and Check Media, which counts the files no note refers to and the files
-notes refer to that are missing, in an alert that offers to delete the unused ones.
+show-intervals, auto-play-audio, read-aloud, two-button-mode) and the card's text size
+(card-text-scale, shown as a percentage). Day: the hour a new day starts (day-start-hour)
+and how many minutes a learning card may be shown early (learn-ahead-minutes). Other Apps:
+whether card-mining apps may add notes through the AnkiConnect API (ankiconnect-enabled),
+and the key they must send (ankiconnect-key). Collection: where the collection is, with Open
+Folder; the backups, with Back Up Now (Collection.backup(force=True)) and the folder; and
+Check Media, which counts the files no note refers to and the files notes refer to that are
+missing, in an alert that offers to delete the unused ones.
 
 The switches are bound to their settings with Gio.Settings.bind; the spin rows by hand,
 since the keys are integers (or a factor) and the rows show doubles. The bindings are let go
@@ -35,6 +35,7 @@ SWITCHES = (
     ('remaining_row', 'show-remaining'),
     ('intervals_row', 'show-intervals'),
     ('sound_row', 'auto-play-audio'),
+    ('read_aloud_row', 'read-aloud'),
     ('two_button_row', 'two-button-mode'),
     ('ankiconnect_row', 'ankiconnect-enabled'),
 )
@@ -60,6 +61,7 @@ class PreferencesDialog(Adw.PreferencesDialog):
     remaining_row = Gtk.Template.Child()
     intervals_row = Gtk.Template.Child()
     sound_row = Gtk.Template.Child()
+    read_aloud_row = Gtk.Template.Child()
     two_button_row = Gtk.Template.Child()
     text_size_row = Gtk.Template.Child()
     day_start_row = Gtk.Template.Child()

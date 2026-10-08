@@ -62,6 +62,18 @@ requests whose Origin is a web page are refused, as is a Host other than the loo
 be required. Paths and URLs in storeMediaFile are refused: only the data a tool sends is
 stored. Error messages stay AnkiConnect's English, since clients match on them.
 
+## Speech: the system's voices, never the wrong language
+
+Cards are read by the system's voices through Spiel (GNOME's speech framework) and, second,
+Speech Dispatcher, which most distributions run and whose Open JTalk module is today the only
+Linux voice that reads Japanese kanji well (espeak-ng reads kana only; Spiel has no Japanese
+voice yet). Retain chooses the voice itself, by language: Spiel's own choice falls back to
+its first voice whatever the language, and a Japanese word read in an English voice teaches
+the wrong sound, so a missing voice is said in a banner, with what to install, rather than
+read badly. `{{tts}}` renders Anki's `[anki:tts]` tag, spoken and not shown, as in Anki.
+Read Aloud splits a side by script so a two-language card gets two voices, and reads
+Japanese from its furigana, since a voice guessing a kanji's reading is often wrong.
+
 ## No sync
 
 AnkiWeb has no public API and the sync protocol is Anki's own; a sync of our own would need a

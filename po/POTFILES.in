@@ -38,6 +38,7 @@ src/dialogs/preferences.py
 src/dialogs/preferences.blp
 src/dialogs/shortcuts.py
 src/widgets/audio.py
+src/widgets/speech.py
 src/widgets/card_view.py
 src/widgets/charts.py
 src/widgets/counts.py

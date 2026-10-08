@@ -76,6 +76,22 @@ revlog, the stock templates, the image occlusion field syntax) from Anki's sourc
 AnkiDroid wiki. Python 3.14's `compression.zstd` reads the current packages without a
 third-party module.
 
+## Text to speech on Linux (October 2026)
+
+libspiel 1.0.4 (April 2025): `Spiel.Speaker` (async `new`, `voices` as a list model,
+`speak`, `cancel`, the `utterance-finished`, `-canceled` and `-error` signals) and
+`Spiel.Utterance` (text, voice, BCP 47 language, rate 0.1–10). It is in neither the GNOME 50
+nor the 51 runtime (apps bundle it); its providers (espeak-ng, Piper) are D-Bus services
+from the project's own Flatpak repository, not Flathub, and the sandbox cannot allow a
+`*.Speech.Provider` suffix (WebKit bug 280684). With no voice for a language it uses the
+first voice; with none at all it warns and emits nothing. Speech Dispatcher's Python
+`speechd` module (`SSIPClient`, `speak` with END and CANCEL callbacks, `set_rate` −100…100,
+voices per output module); in a Flatpak it needs `--filesystem=xdg-run/speech-dispatcher:ro`.
+Japanese: espeak-ng reads kana only; Piper's one Japanese voice (hi_fi_captain, CC BY-NC-SA)
+needs Piper 1.7 and is not in Spiel's Piper provider; Open JTalk through Speech Dispatcher
+(`sd_openjtalk`) reads kanji with pitch accent. Anki: `{{tts ja_JP voices=A,B speed=0.8:F}}`,
+voices a preference list, nothing on Linux without an add-on.
+
 ## Sources
 
 Anki forums (threads 17042, 66053, 43692, 929, 30172, 3651, 20906, 6000, 41667, 23621,
@@ -85,4 +101,8 @@ popular", Hacker News 46861313 and 39163094, borretti.me on Mochi, the RemNote f
 Anki knock-offs FAQ, Capterra reviews, GitHub for Memorize and Memorado, Flathub for Oboete,
 the libadwaita 1.9 class index and style classes page, the GNOME HIG, the WebKitGTK 6.0
 reference, open-spaced-repetition's py-fsrs and fsrs-rs, ankitects/anki's rslib and the
-AnkiDroid database wiki, and PEP 784.
+AnkiDroid database wiki, and PEP 784. For speech: github.com/project-spiel/libspiel
+(spiel-speaker.c, spiel-registry.c), project-spiel.org, spiel-it's manifest,
+speech-provider-piper, brailcom/speechd's client.py, rhasspy/piper-voices, OHF-Voice/piper1-gpl
+1.7.0, espeak-ng issue 366, Anki's qt/aqt/tts.py and the templates manual, Mozilla bug
+1857367.

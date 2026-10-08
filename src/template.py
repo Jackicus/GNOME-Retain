@@ -8,11 +8,13 @@ field is non-empty; whitespace, `<br>` and `<div>` only counts as empty) and
 `{{^Field}}…{{/Field}}` (shown when it is empty) conditionals, which nest, and filters in front
 of a field name, applied right to left: `{{cloze:Text}}`, `{{cloze-only:Text}}`,
 `{{hint:Field}}`, `{{type:Field}}`, `{{type:cloze:Text}}`, `{{text:Field}}`,
-`{{furigana:Field}}`, `{{kana:Field}}`, `{{kanji:Field}}`; `{{tts …:Field}}` and an unknown
-filter give the plain field. `{{FrontSide}}` on the answer is the rendered question without its
-`[sound:…]` tags; `{{Tags}}`, `{{Type}}`, `{{Deck}}`, `{{Subdeck}}`, `{{Card}}` and
-`{{CardFlag}}` come from the `special` dict. An unknown field renders as
-`{unknown field Name}`. The legacy `<% %>` delimiters are accepted.
+`{{furigana:Field}}`, `{{kana:Field}}`, `{{kanji:Field}}`, and
+`{{tts LANG [voices=…] [speed=…]:Field}}`, which renders Anki's
+`[anki:tts lang=LANG …]text[/anki:tts]` tag (spoken, not shown); `{{tts-voices:}}` and an
+unknown filter give the plain field. `{{FrontSide}}` on the answer is the rendered question
+without its `[sound:…]` and `[anki:tts]` tags; `{{Tags}}`, `{{Type}}`, `{{Deck}}`,
+`{{Subdeck}}`, `{{Card}}` and `{{CardFlag}}` come from the `special` dict. An unknown field
+renders as `{unknown field Name}`. The legacy `<% %>` delimiters are accepted.
 
 Clozes in a field (`{{c1::text::hint}}`, `{{c1,2::text}}` for two cards, nested clozes) render
 for the card's cloze number `ord + 1`: on the question the active one is
@@ -33,6 +35,10 @@ number) for `type:cloze:`; the review page draws the entry and the comparison th
     media_references(text) -> list[str]
     sound_tags(text) -> list[str]
     strip_sound_tags(text) -> str
+    tts_tags(text) -> [(lang, voices, speed, text)]   the [anki:tts] tags, to speak
+    av_tags(text) -> [('sound', name) | ('tts', (lang, voices, speed, text))]   in order
+    strip_tts_tags(text) -> str
+    speech_text(html, lang='') -> str   what a voice reads (furigana give the reading in ja)
     typed_answer_diff(expected, typed) -> str
 
 `fields` maps field names to their HTML; `ord` is the template index (standard note types) or
@@ -58,6 +64,10 @@ _CLOZE_TOKEN = re.compile(r'\{\{c(\d+(?:,\d+)*)::|\}\}')
 _FURIGANA = re.compile(r' ?([^ >]+?)\[(.+?)\]')
 _SOUND = re.compile(r'\[sound:([^\]]+)\]')
 _TTS = re.compile(r'\[anki:tts\b[^\]]*\].*?\[/anki:tts\]', re.DOTALL)
+_TTS_TAG = re.compile(r'\[anki:tts\b([^\]]*)\](.*?)\[/anki:tts\]', re.DOTALL)
+_AV_TAG = re.compile(r'\[sound:([^\]]+)\]|\[anki:tts\b([^\]]*)\](.*?)\[/anki:tts\]', re.DOTALL)
+_RUBY = re.compile(r'<ruby\b[^>]*>(.*?)</ruby>', re.DOTALL | re.IGNORECASE)
+_RT = re.compile(r'<rt\b[^>]*>(.*?)</rt>', re.DOTALL | re.IGNORECASE)
 _BREAK = re.compile(
     r'<(?:br\b[^>]*|/(?:div|p|li|tr|td|th|h[1-6]|blockquote|pre|ul|ol|dl|dd|dt|table)\s*)>',
     re.IGNORECASE)
@@ -179,7 +189,9 @@ class _Context:
                 text = _furigana(text, lambda match: match[2])
             elif name == 'kanji':
                 text = _furigana(text, lambda match: match[1])
-            # `tts …`, `tts-voices` and unknown filters leave the field as it is.
+            elif name == 'tts' or name.startswith('tts '):
+                text = _tts_tag(text, name)
+            # `tts-voices` and unknown filters leave the field as it is.
         return text
 
     def type_placeholder(self, key, cloze):
@@ -469,6 +481,69 @@ def sound_tags(text):
 
 def strip_sound_tags(text):
     return _SOUND.sub('', text)
+
+
+# Text to speech
+
+
+def _tts_tag(text, spec):
+    """`{{tts ja_JP voices=A,B speed=0.8:…}}` as Anki renders it: a tag around the text."""
+    words = spec.split()[1:]
+    lang = next((word for word in words if '=' not in word), '')
+    options = [word for word in words if '=' in word]
+    return '[anki:tts {}]{}[/anki:tts]'.format(' '.join([f'lang={lang}'] + options), text)
+
+
+def _tts_options(attributes):
+    options = dict(word.split('=', 1) for word in attributes.split() if '=' in word)
+    try:
+        speed = float(options.get('speed', 1.0))
+    except ValueError:
+        speed = 1.0
+    voices = [voice for voice in options.get('voices', '').split(',') if voice]
+    return options.get('lang', ''), voices, speed
+
+
+def speech_text(text, lang=''):
+    """What a TTS voice reads for some card HTML: no tags, `[sound:…]` or `[...]`; in
+    Japanese, furigana give the reading (`<ruby>一日<rt>ついたち</rt></ruby>`, `一日[ついたち]`)
+    so the voice does not guess it."""
+    text = text.replace('[...]', ' ')
+    if lang.lower().startswith('ja'):
+        text = _RUBY.sub(lambda match: ''.join(_RT.findall(match[1])) or match[1], text)
+        text = _furigana(text, lambda match: match[2])
+    else:
+        text = _RT.sub('', text)
+    text = strip_html(_SOUND.sub('', text))
+    return ' '.join(text.split())
+
+
+def tts_tags(text):
+    """The `[anki:tts]` tags, in order: (lang, voices, speed, text to speak)."""
+    tags = []
+    for match in _TTS_TAG.finditer(text):
+        lang, voices, speed = _tts_options(match[1])
+        tags.append((lang, voices, speed, speech_text(match[2], lang)))
+    return tags
+
+
+def av_tags(text):
+    """The sounds and speech of some card HTML, in order: ('sound', name) or
+    ('tts', (lang, voices, speed, text))."""
+    found = []
+    for match in _AV_TAG.finditer(text):
+        if match[1] is not None:
+            found.append(('sound', match[1]))
+        else:
+            lang, voices, speed = _tts_options(match[2])
+            spoken = speech_text(match[3], lang)
+            if spoken:
+                found.append(('tts', (lang, voices, speed, spoken)))
+    return found
+
+
+def strip_tts_tags(text):
+    return _TTS.sub('', text)
 
 
 # Typed answers

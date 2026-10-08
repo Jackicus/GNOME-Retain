@@ -11,8 +11,11 @@
 
 The session (scheduler.Session) says what comes next: the deck's queue of the day, or the
 custom one it was given. A card is rendered by collection.render_card() into a RetainCardView
-(widgets/card_view.py) in a libadwaita card; its sounds play through widgets/audio.py when
-auto-play-audio is on (Replay Sound plays them again); a `{{type:…}}` question gets an entry
+(widgets/card_view.py) in a libadwaita card; its sounds and `{{tts}}` speech play in order
+through widgets/audio.py when auto-play-audio is on (Replay Sound plays them again). Read
+Aloud speaks the side shown, each language in its own voice (speech.runs), and does so as
+each side is shown with read-aloud on; when no voice reads a language, a banner above the
+card says so and explains what to install. A `{{type:…}}` question gets an entry
 under the card, whose text the answer side compares (template.typed_answer_diff). The header
 shows the deck's name and the remaining counts (widgets/counts.py, from session.counts();
 hidden by show-remaining), a flag menu and a More menu; the bottom bar Show Answer, then
@@ -41,7 +44,7 @@ from gettext import gettext as _
 
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
-from .. import notetypes, template
+from .. import notetypes, speech, template
 from ..fsrs import AGAIN, EASY, GOOD, HARD
 from ..shortcuts import REVIEW
 from ..widgets.audio import Player
@@ -57,7 +60,12 @@ RATINGS = (AGAIN, HARD, GOOD, EASY)
 RATE_KEYS = {'again': AGAIN, 'hard': HARD, 'good': GOOD, 'easy': EASY}
 FLAG_KEYS = {'flag-1': 1, 'flag-2': 2, 'flag-3': 3, 'flag-4': 4}
 CARD_ACTIONS = ('show-answer', 'rate', 'edit', 'info', 'mark', 'suspend', 'bury', 'delete',
-                'replay', 'flag')
+                'replay', 'read-aloud', 'flag')
+# Language names for the missing-voice banner; other languages show their tag.
+LANGUAGE_NAMES = {'ja': _('Japanese'), 'zh': _('Chinese'), 'ko': _('Korean'),
+                  'en': _('English'), 'es': _('Spanish'), 'fr': _('French'),
+                  'de': _('German'), 'it': _('Italian'), 'pt': _('Portuguese'),
+                  'ru': _('Russian')}
 COLLECTION_KINDS = ('cards', 'notes', 'notetypes', 'decks')
 
 _TYPE_SPAN = re.compile(r'<span class="retain-type-answer" data-field="([^"]*)"'
@@ -69,6 +77,7 @@ class ReviewPage(Adw.NavigationPage):
     __gtype_name__ = 'RetainReviewPage'
 
     toolbar_view = Gtk.Template.Child()
+    voice_banner = Gtk.Template.Child()
     title_label = Gtk.Template.Child()
     counts = Gtk.Template.Child()
     flag_button = Gtk.Template.Child()
@@ -113,7 +122,7 @@ class ReviewPage(Adw.NavigationPage):
         self._busy = False  # a change of the page's own making: no reload for it
         self._reload_pending = False
         self._handlers = []  # (object, handler id) connected while mapped
-        self._player = Player()
+        self._player = Player(missing_voice=self._on_missing_voice)
         self._buttons = {AGAIN: self.again_button, HARD: self.hard_button,
                          GOOD: self.good_button, EASY: self.easy_button}
         self._intervals = {AGAIN: self.again_interval, HARD: self.hard_interval,
@@ -121,6 +130,7 @@ class ReviewPage(Adw.NavigationPage):
         self._add_actions()
         self._add_keys()
         connect_weak(self.type_entry, 'activate', self._on_entry_activate)
+        connect_weak(self.voice_banner, 'button-clicked', self._on_voice_help)
         self.settings.bind('show-remaining', self.counts, 'visible', Gio.SettingsBindFlags.GET)
         self._apply_settings()
         self.next()
@@ -188,6 +198,7 @@ class ReviewPage(Adw.NavigationPage):
                 ('edit', self._on_edit, None), ('info', self._on_info, None),
                 ('suspend', self._on_suspend, None), ('bury', self._on_bury, None),
                 ('delete', self._on_delete, None), ('replay', self._on_replay, None),
+                ('read-aloud', self._on_read_aloud, None),
                 ('study-more', self._on_study_more, None)):
             action = Gio.SimpleAction.new(name, parameter)
             connect_weak(action, 'activate', callback)
@@ -269,6 +280,8 @@ class ReviewPage(Adw.NavigationPage):
             self._on_info()
         elif name == 'replay-audio':
             self._on_replay()
+        elif name == 'read-aloud':
+            self._on_read_aloud()
         elif name == 'delete':
             self._on_delete()
         else:
@@ -352,8 +365,7 @@ class ReviewPage(Adw.NavigationPage):
         self._update_counts()
         if typed and self.get_mapped():
             self.type_entry.grab_focus()
-        if self.settings.get_boolean('auto-play-audio'):
-            self._play(template.sound_tags(self._question))
+        self._play_side('question')
 
     def show_answer(self):
         if self.card is None or self.side != 'question':
@@ -367,8 +379,7 @@ class ReviewPage(Adw.NavigationPage):
         self.card_view.show_answer()
         self._update_intervals()
         self.answer_stack.set_visible_child_name('rate')
-        if self.settings.get_boolean('auto-play-audio'):
-            self._play(template.sound_tags(self._answer))
+        self._play_side('answer')
 
     def answer(self, rating):
         """Rate the card shown (its answer side must be showing); True when it was."""
@@ -481,11 +492,60 @@ class ReviewPage(Adw.NavigationPage):
             self.flag_button.remove_css_class('accent')
             self.flag_button.set_tooltip_text(_('Flag Card'))
 
-    def _play(self, names):
-        paths = [self.collection.media.path(name) for name in names]
-        paths = [path for path in paths if path.exists()]
-        if paths:
-            self._player.play(paths)
+    def _av_items(self, html):
+        """The side's sounds (files that exist) and speech, in order, for the player."""
+        items = []
+        for kind, value in template.av_tags(html):
+            if kind == 'tts':
+                items.append(('tts', value))
+            else:
+                path = self.collection.media.path(value)
+                if path.exists():
+                    items.append(path)
+        return items
+
+    def _read_aloud_items(self, side):
+        """Read Aloud's speech for a side: its text in runs, each in its language's voice."""
+        html = speech.side_html(self._question, self._answer, side)
+        html = template.strip_tts_tags(html)
+        context = '\n'.join(self.note.fields) if self.note is not None else ''
+        return [('tts', (lang, [], 1.0, text)) for lang, text in speech.runs(html, context)]
+
+    def _play_side(self, side):
+        """What a side plays when it is shown: its sounds and {{tts}} speech (with
+        auto-play-audio), then the side read aloud (with read-aloud)."""
+        items = []
+        if self.settings.get_boolean('auto-play-audio'):
+            items += self._av_items(self._question if side == 'question' else self._answer)
+        if self.settings.get_boolean('read-aloud'):
+            items += self._read_aloud_items(side)
+        if items:
+            self._player.play(items)
+
+    def _on_missing_voice(self, lang):
+        """No voice reads `lang` (None: nothing can speak at all): say so above the card,
+        once, without stopping the review."""
+        if lang is None:
+            title = _('Nothing is installed to read cards aloud')
+        else:
+            base = speech.language_tag(lang).split('-')[0] or lang
+            name = LANGUAGE_NAMES.get(base, lang)
+            title = _('No voice is installed for {language}').format(language=name)
+        self.voice_banner.set_title(title)
+        self.voice_banner.set_revealed(True)
+
+    def _on_voice_help(self, _banner):
+        dialog = Adw.AlertDialog(
+            heading=_('Installing Voices'),
+            body=_('Retain reads cards with the voices of your system. Install one of these, '
+                   'then open the card again:\n\n'
+                   '• Speech Dispatcher with the voice for the language. For Japanese, '
+                   'its Open JTalk module reads kanji.\n'
+                   '• A Spiel speech provider, such as eSpeak NG or Piper, from '
+                   'project-spiel.org.'))
+        dialog.add_response('close', _('_Close'))
+        dialog.present(self.get_root())
+        self.voice_banner.set_revealed(False)
 
     def toast(self, text, undo=False):
         application = app()
@@ -572,10 +632,17 @@ class ReviewPage(Adw.NavigationPage):
     def _on_replay(self, *_args):
         if self.card is None:
             return
-        names = template.sound_tags(self._question)
+        items = self._av_items(self._question)
         if self.side == 'answer':
-            names += template.sound_tags(self._answer)
-        self._play(names)
+            items += self._av_items(self._answer)
+        self._player.play(items)
+
+    def _on_read_aloud(self, *_args):
+        if self.card is None or self.side not in ('question', 'answer'):
+            return
+        items = self._read_aloud_items(self.side)
+        if items:
+            self._player.play(items)
 
     def _on_study_more(self, *_args):
         from ..dialogs import custom_study
