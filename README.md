@@ -27,6 +27,8 @@ back, schedules with FSRS, and keeps the clutter out.
   page of settings, and an Optimize button that fits the model to your own history.
 - **Anki decks in and out:** `.apkg` and `.colpkg` with pictures, sounds, note types,
   scheduling and review history; shared decks render as Anki renders them.
+- **Your own note types:** add fields, edit the card templates and their CSS with a live
+  preview; renaming a field renames it in the templates, as Anki does.
 - **Search** across every card with Anki's syntax, bulk actions with undo.
 - **Cards read aloud** in your system's voices, each language in its own (Anki's `{{tts}}`
   works too), with the furigana's reading for Japanese.

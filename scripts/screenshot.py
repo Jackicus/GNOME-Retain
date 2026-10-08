@@ -18,8 +18,9 @@ animations are off. --page is a sidebar key: today, browse, stats, or deck:NAME 
 full name, "Spanish::Verbs"). --study pushes the review page of DECK (the --page's deck, or
 the first deck with cards due), --answer with its answer shown. --dialog opens a dialog over
 the page and shoots it (notetypes: Manage Note Types; notetype: the page of the type with
-the most notes; template: its first card template's editor). --search types a query into the browser. In the narrow layout the
-shot shows the sidebar, or the page when --page is given (--sidebar keeps the sidebar).
+the most notes; template: its first card template's editor). --search types a query into
+the browser. In the narrow layout the shot shows the sidebar, or the page when --page is
+given (--sidebar keeps the sidebar).
 """
 
 import argparse

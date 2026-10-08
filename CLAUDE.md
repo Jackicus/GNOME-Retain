@@ -25,8 +25,8 @@ Application (main.py)    app.settings, app.collection; app.* actions; app.toast(
 │  │                     AdwSidebar (Today, Browse, Statistics; then the deck tree)
 │  ├─ content            AdwNavigationView: a sidebar item replaces the stack with its root page
 │  │                     (pages/: today, deck, browse, stats); Study pushes pages/review.py
-│  └─ dialogs/           add_edit (the note editor), deck_options, custom_study, import/export,
-│                        preferences, about, shortcuts
+│  └─ dialogs/           add_edit (the note editor), notetypes (Manage Note Types),
+│                        deck_options, custom_study, import/export, preferences, about, shortcuts
 ├─ Collection (collection.py)   the SQLite collection (schema.py): decks, note types, notes,
 │                        cards, revlog, media, config; the undo stack; signals on change
 ├─ Scheduler (scheduler.py)     what to show next and what an answer does (fsrs.py is the
