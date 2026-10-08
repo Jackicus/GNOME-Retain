@@ -5,6 +5,7 @@ src/main.py
 src/window.py
 src/window.blp
 src/sidebar.py
+src/ankiconnect.py
 src/apkg.py
 src/collection.py
 src/scheduler.py

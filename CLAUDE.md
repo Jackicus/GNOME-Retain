@@ -34,6 +34,8 @@ Application (main.py)    app.settings, app.collection; app.* actions; app.toast(
 ├─ template.py           Anki's card templates: {{Field}}, cloze, hints, type-in, conditionals
 ├─ search.py             Anki's search syntax to SQL over schema.py's tables
 ├─ apkg.py               .apkg/.colpkg in and out (legacy and zstd packages), CSV/TSV in
+├─ ankiconnect.py        AnkiConnect's API on 127.0.0.1:8765 for Yomitan and co. (a thread
+│                        serving HTTP; the actions run on the GTK thread through idle_add)
 ├─ media.py              the media folder: adding files, naming, references in fields
 ├─ stats.py              the queries behind Statistics
 └─ optimizer.py          fits FSRS parameters to the revlog (a thread)
@@ -46,8 +48,8 @@ directory, `--demo` to build/demo). GSettings: one schema for both builds.
 ## Rules
 
 - **Model code has no GTK**: collection.py, scheduler.py, fsrs.py, template.py, search.py,
-  apkg.py, media.py, stats.py, days.py, deck_config.py and optimizer.py import GLib/GObject at
-  most, and are tested without a display. Pages and widgets call them; they never reach into
+  apkg.py, ankiconnect.py, media.py, stats.py, days.py, deck_config.py and optimizer.py import
+  GLib/GObject at most, and are tested without a display. Pages and widgets call them; they never reach into
   widgets.
 - **Everything undoable**: a change to the collection goes through `Collection.undoable(label)`
   so `app.undo()` (Ctrl+Z) can put it back; a destructive action shows a toast with Undo, not a

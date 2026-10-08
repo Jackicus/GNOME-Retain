@@ -52,6 +52,16 @@ The review heatmap, the streak, true retention, card information with history, a
 and toast, type-in-the-answer diffs and image occlusion are all built in; there is no add-on
 system. Add-ons breaking on every Anki update was a top complaint.
 
+## AnkiConnect's API, not a new one
+
+Card-mining tools (Yomitan, asbplayer) already speak AnkiConnect, an Anki add-on's HTTP API on
+127.0.0.1:8765, so Retain answers that API (the subset those tools use) rather than inventing
+one nobody calls. It is off by default. Because any web page could send a POST to localhost,
+requests whose Origin is a web page are refused, as is a Host other than the loopback address
+(DNS rebinding); browser extensions and clients that send no Origin are let in, and a key can
+be required. Paths and URLs in storeMediaFile are refused: only the data a tool sends is
+stored. Error messages stay AnkiConnect's English, since clients match on them.
+
 ## No sync
 
 AnkiWeb has no public API and the sync protocol is Anki's own; a sync of our own would need a

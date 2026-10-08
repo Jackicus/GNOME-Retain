@@ -54,5 +54,15 @@
       <summary>Minutes a learning card may be shown early</summary>
       <description>When nothing else is due, a card in learning whose step ends within this many minutes is shown rather than making you wait.</description>
     </key>
+    <key name="ankiconnect-enabled" type="b">
+      <default>false</default>
+      <summary>Let card-mining apps add cards</summary>
+      <description>Whether Retain answers AnkiConnect requests on 127.0.0.1:8765, so that Yomitan and similar tools on this computer can add notes. Web pages are always refused.</description>
+    </key>
+    <key name="ankiconnect-key" type="s">
+      <default>''</default>
+      <summary>Key for card-mining apps</summary>
+      <description>When not empty, an AnkiConnect request must carry this key.</description>
+    </key>
   </schema>
 </schemalist>

@@ -8,7 +8,9 @@
 One page, General (preferences.blp). Reviewing: the review page's switches (show-remaining,
 show-intervals, auto-play-audio, two-button-mode) and the card's text size (card-text-scale,
 shown as a percentage). Day: the hour a new day starts (day-start-hour) and how many
-minutes a learning card may be shown early (learn-ahead-minutes). Collection: where the
+minutes a learning card may be shown early (learn-ahead-minutes). Other Apps: whether
+card-mining apps may add notes through the AnkiConnect API (ankiconnect-enabled), and the
+key they must send (ankiconnect-key). Collection: where the
 collection is, with Open Folder; the backups, with Back Up Now (Collection.backup(force=True))
 and the folder; and Check Media, which counts the files no note refers to and the files
 notes refer to that are missing, in an alert that offers to delete the unused ones.
@@ -34,6 +36,7 @@ SWITCHES = (
     ('intervals_row', 'show-intervals'),
     ('sound_row', 'auto-play-audio'),
     ('two_button_row', 'two-button-mode'),
+    ('ankiconnect_row', 'ankiconnect-enabled'),
 )
 # The spin rows: (template child, key, the row's value for the setting's 1).
 SPINS = (
@@ -61,6 +64,8 @@ class PreferencesDialog(Adw.PreferencesDialog):
     text_size_row = Gtk.Template.Child()
     day_start_row = Gtk.Template.Child()
     learn_ahead_row = Gtk.Template.Child()
+    ankiconnect_row = Gtk.Template.Child()
+    ankiconnect_key_row = Gtk.Template.Child()
     location_row = Gtk.Template.Child()
     open_button = Gtk.Template.Child()
     backups_row = Gtk.Template.Child()
@@ -89,6 +94,9 @@ class PreferencesDialog(Adw.PreferencesDialog):
             self._handlers.append((settings, settings.connect(
                 'changed::' + key, lambda *_args, row=row, key=key, scale=scale:
                 self._set_spin(row, key, scale))))
+
+        settings.bind('ankiconnect-key', self.ankiconnect_key_row, 'text',
+                      Gio.SettingsBindFlags.DEFAULT)
 
         self.open_button.connect('clicked', lambda *_args: self.open_folder(self.data_dir))
         self.backups_folder_button.connect(
@@ -124,6 +132,7 @@ class PreferencesDialog(Adw.PreferencesDialog):
     def _on_closed(self, _dialog):
         for child, _key in SWITCHES:
             Gio.Settings.unbind(getattr(self, child), 'active')
+        Gio.Settings.unbind(self.ankiconnect_key_row, 'text')
         for source, handler in self._handlers:
             source.disconnect(handler)
         self._handlers = []

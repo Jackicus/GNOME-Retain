@@ -5,6 +5,7 @@
 
     window = Window(application=app)
     window.show_root('deck:123')         # a sidebar key: today, browse, stats, deck:ID
+    window.browse(query)                  # the browser, searching for the query
     window.push(page)                     # a pushed page (Study, Card Information)
     window.study(deck_id, session=None)   # the review page for a deck or a custom session
     window.current_deck_id()              # the deck the page shown belongs to, or None
@@ -109,6 +110,12 @@ class Window(Adw.ApplicationWindow):
         page = self._roots.get('browse')
         if page is not None and hasattr(page, 'focus_search'):
             page.focus_search()
+
+    def browse(self, query):
+        self.show_root('browse')
+        page = self._roots.get('browse')
+        if page is not None:
+            page.search(query)
 
     def on_study(self, *_args):
         deck_id = self.current_deck_id()
