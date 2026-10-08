@@ -8,7 +8,7 @@ import types
 import unittest
 
 from tests import ROOT  # noqa: F401  (registers src/ as retain)
-from tests.gtk import pump
+from tests.gtk import pump, wait_for
 from tests.test_today import DeckPagesTestCase
 
 
@@ -167,15 +167,56 @@ class DeckOptionsTest(DeckPagesTestCase):
         self.assertEqual(dialog.retention_subtitle.get_text(),
                          'Aim to remember 85% of cards when they come up. '
                          'Higher means more reviews.')
-        self.assertIn('fewer reviews than at 90%', dialog.retention_estimate.get_text())
-        dialog.retention_adjustment.set_value(0.95)
-        self.assertIn('more reviews than at 90%', dialog.retention_estimate.get_text())
+        # A year of the preset's five new cards, simulated in a thread.
+        self.assertTrue(wait_for(lambda: 'a day over the next year' in
+                                 dialog.retention_estimate.get_text(), timeout=2))
+        lower = dialog.retention_estimate.get_text()
+        self.assertIn('of 5 cards remembered at its end', lower)
+        dialog.retention_adjustment.set_value(0.97)
+        self.assertTrue(wait_for(lambda: dialog.retention_estimate.get_text() != lower,
+                                 timeout=2))
+        self.assertIn('of 5 cards remembered', dialog.retention_estimate.get_text())
         dialog.retention_adjustment.set_value(0.90)
-        self.assertEqual(dialog.retention_estimate.get_text(),
-                         'About as many reviews as at 90%')
         dialog.save()
         self.assertEqual(self.collection.config_for_deck(self.spanish.id).desired_retention,
                          0.9)
+
+    def test_estimate_without_cards_compares_with_ninety_percent(self):
+        from retain.deck_config import DeckConfig
+
+        light = self.collection.add_deck_config(DeckConfig(name='Light'))
+        self.collection.set_deck_config(self.empty.id, light.id)
+        dialog = self.dialog(self.empty.id)
+        self.assertTrue(wait_for(lambda: dialog.retention_estimate.get_text(), timeout=2))
+        self.assertEqual(dialog.retention_estimate.get_text(),
+                         'About as many reviews as at 90%')
+        dialog.retention_adjustment.set_value(0.85)
+        self.assertTrue(wait_for(lambda: 'fewer reviews than at 90%' in
+                                 dialog.retention_estimate.get_text(), timeout=2))
+
+    def test_load_balancing_and_easy_days_save(self):
+        from retain import workload
+
+        dialog = self.dialog()
+        self.assertTrue(dialog.load_balancing_row.get_active())
+        self.assertEqual([row.get_title() for row in dialog.easy_day_rows][:2],
+                         ['Monday', 'Tuesday'])
+        self.assertEqual(dialog.easy_days_row.get_subtitle(), 'The same load every day')
+        dialog.easy_day_rows[5].set_selected(1)
+        dialog.easy_day_rows[6].set_selected(2)
+        self.assertEqual(dialog.easy_days_row.get_subtitle(),
+                         'Fewer reviews on Saturday, Sunday')
+        dialog.save()
+        config = self.collection.config_for_deck(self.spanish.id)
+        self.assertEqual(config.easy_days,
+                         [workload.NORMAL] * 5 + [workload.REDUCED, workload.MINIMUM])
+        dialog.load_balancing_row.set_active(False)
+        self.assertFalse(dialog.easy_days_row.get_sensitive())
+        self.assertEqual(dialog.easy_days_row.get_subtitle(), 'Needs load balancing')
+        dialog.save()
+        self.assertFalse(self.collection.config_for_deck(self.spanish.id).load_balancing)
+        self.assertEqual(self.collection.undo(), 'Change Deck Options')
+        self.assertTrue(self.collection.config_for_deck(self.spanish.id).load_balancing)
 
     def test_optimize_is_disabled_under_the_minimum(self):
         from retain import optimizer

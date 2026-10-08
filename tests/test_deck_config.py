@@ -7,7 +7,7 @@ import json
 import unittest
 
 from tests import ROOT  # noqa: F401
-from retain import fsrs
+from retain import fsrs, workload
 from retain.deck_config import DEFAULT_ID, FIELDS, LEECH_TAG, DeckConfig
 
 # An invented FSRS-5 set (19 numbers) and FSRS-4.5 set (17), all within the bounds.
@@ -187,10 +187,54 @@ class AnkiTest(unittest.TestCase):
                             learning_steps=[2.0, 15.0], relearning_steps=[5.0],
                             new_order='random', bury_siblings=False, leech_threshold=6,
                             leech_action='suspend', maximum_interval=500,
-                            desired_retention=0.85, fsrs_parameters=list(fsrs.DEFAULT_PARAMETERS))
+                            desired_retention=0.85, fsrs_parameters=list(fsrs.DEFAULT_PARAMETERS),
+                            load_balancing=False, easy_days=EASY_DAYS)
         back = DeckConfig.from_anki(config.to_anki())
         for key in FIELDS:
             self.assertEqual(getattr(back, key), getattr(config, key), key)
+
+
+# Saturday reduced, Sunday minimum.
+EASY_DAYS = [workload.NORMAL] * 5 + [workload.REDUCED, workload.MINIMUM]
+
+
+class WorkloadSettingsTest(unittest.TestCase):
+
+    def test_balancing_is_on_and_every_day_normal_by_default(self):
+        config = DeckConfig()
+        self.assertTrue(config.load_balancing)
+        self.assertEqual(config.easy_days, [1.0] * 7)
+        config.easy_days[0] = 0.0
+        self.assertEqual(DeckConfig().easy_days, [1.0] * 7)
+
+    def test_the_row_round_trips(self):
+        config = DeckConfig(id=3, name='Weekdays', load_balancing=False, easy_days=EASY_DAYS)
+        back = DeckConfig.from_row(config.to_row())
+        self.assertFalse(back.load_balancing)
+        self.assertEqual(back.easy_days, EASY_DAYS)
+        # A row stored before the settings existed reads as the defaults.
+        row = config.to_row()
+        data = json.loads(row['data'])
+        del data['load_balancing'], data['easy_days']
+        row['data'] = json.dumps(data)
+        older = DeckConfig.from_row(row)
+        self.assertTrue(older.load_balancing)
+        self.assertEqual(older.easy_days, [1.0] * 7)
+
+    def test_to_anki_writes_ankis_fields(self):
+        dconf = DeckConfig(easy_days=EASY_DAYS, load_balancing=False).to_anki()
+        self.assertEqual(dconf['easyDaysPercentages'], [1.0] * 5 + [0.5, 0.0])
+        self.assertIs(dconf['loadBalancerEnabled'], False)
+        json.dumps(dconf)
+
+    def test_from_anki_reads_easy_days_as_anki_does(self):
+        config = DeckConfig.from_anki({'easyDaysPercentages': [1, 1, 0.7, 1, 1, 0.5, 0]})
+        self.assertEqual(config.easy_days, [1.0, 1.0, 0.5, 1.0, 1.0, 0.5, 0.0])
+        self.assertTrue(config.load_balancing)  # Anki keeps its switch in the collection
+        for odd in ([], [1, 0], None, 'x'):
+            self.assertEqual(DeckConfig.from_anki({'easyDaysPercentages': odd}).easy_days,
+                             [1.0] * 7)
+        self.assertFalse(DeckConfig.from_anki({'loadBalancerEnabled': False}).load_balancing)
 
 
 if __name__ == '__main__':

@@ -8,13 +8,17 @@
     parse_steps('1m 10m 1h'), format_steps([1, 10, 60])
     parse_parameters('0.21, 1.29, …'), format_parameters(params)
     reviews_estimate(retention, params)  # the change in reviews against 90%, in percent
+    workload_text(simulation), easy_days_summary(values, balancing)
 
 The Preset row lists the collection's presets (deck_config.py's DeckConfig rows); choosing
 one assigns it to the deck at once (collection.set_deck_config), and its menu adds (a copy
 of the shown one), renames or deletes a preset through deck_name.NameDialog. Everything else
-edits the shown preset: the daily limits, the study mode (flip, type or choose; answers.py),
-the desired retention (a scale with a plain sentence and an estimate of the reviews it costs
-or saves, from the forgetting curve's exponent), Optimize Parameters (optimizer.suggest in a
+edits the shown preset: the daily limits, the workload (Load Balancing, and Easy Days: a
+row per weekday, Normal, Reduced or Minimum, which need the balancer), the study mode (flip,
+type or choose; answers.py), the desired retention (a scale with a plain sentence and an
+estimate of the reviews a day it costs: workload.simulate() over the preset's cards for a
+year, in a thread, restarted a moment after the settings it reads change; the forgetting
+curve's ratio against 90% when the decks have no cards), Optimize Parameters (optimizer.suggest in a
 thread over the revlog of every deck on the preset, cancelled by closing the dialog, stored
 on success) and, under Advanced, the steps, ordering, burying, leeches, the maximum interval
 and the FSRS parameters themselves. An entry that cannot be parsed turns red and is left out
@@ -29,9 +33,10 @@ from gettext import ngettext
 
 from gi.repository import Adw, GLib, Gio, Gtk
 
-from .. import fsrs, optimizer
+from .. import fsrs, optimizer, workload
 from ..collection import CollectionError
 from ..deck_config import DEFAULT_ID
+from ..widgets.util import connect_weak
 from .deck_name import NameDialog, watch_dialog
 
 log = logging.getLogger(__name__)
@@ -43,6 +48,8 @@ NEW_MIXES = ('mix', 'after', 'before')
 LEECH_ACTIONS = ('tag', 'suspend')
 STUDY_MODES = ('flip', 'type', 'choice')
 REFERENCE_RETENTION = 0.9
+EASY_DAY_CHOICES = (workload.NORMAL, workload.REDUCED, workload.MINIMUM)
+ESTIMATE_DELAY_MS = 250  # after the last change, before the workload is simulated again
 
 
 # -- parsing and text ------------------------------------------------------------------------
@@ -110,6 +117,39 @@ def estimate_text(retention, params):
     return _('About {percent}% fewer reviews than at 90%').format(percent=-percent)
 
 
+def weekday_names():
+    return (_('Monday'), _('Tuesday'), _('Wednesday'), _('Thursday'), _('Friday'),
+            _('Saturday'), _('Sunday'))
+
+
+def easy_days_summary(values, balancing=True):
+    """The Easy Days row's subtitle: which weekdays get fewer reviews."""
+    if not balancing:
+        return _('Needs load balancing')
+    lighter = [name for name, value in zip(weekday_names(), values, strict=True)
+               if value != workload.NORMAL]
+    if not lighter:
+        return _('The same load every day')
+    return _('Fewer reviews on {days}').format(days=', '.join(lighter))
+
+
+def workload_text(simulation):
+    """A simulation as one sentence: reviews a day over the year, and what they buy."""
+    average = sum(simulation.reviews) / max(1, len(simulation.reviews))
+    # Whole reviews from ten a day; under that one decimal, so a small deck shows a change.
+    if average >= 10:
+        reviews = f'{round(average):,}'
+    else:
+        reviews = f'{average:.1f}'.removesuffix('.0')
+    return ngettext(
+        'About {reviews} review a day over the next year, with {remembered} of {cards} '
+        'cards remembered at its end',
+        'About {reviews} reviews a day over the next year, with {remembered} of {cards} '
+        'cards remembered at its end', 1 if reviews == '1' else 2).format(
+            reviews=reviews, remembered=f'{round(simulation.memorized):,}',
+            cards=f'{round(simulation.cards):,}')
+
+
 def retention_sentence(retention):
     return _('Aim to remember {percent}% of cards when they come up. '
              'Higher means more reviews.').format(percent=round(retention * 100))
@@ -131,6 +171,8 @@ class DeckOptionsDialog(Adw.PreferencesDialog):
     retention_adjustment = Gtk.Template.Child()
     retention_subtitle = Gtk.Template.Child()
     retention_estimate = Gtk.Template.Child()
+    load_balancing_row = Gtk.Template.Child()
+    easy_days_row = Gtk.Template.Child()
     optimize_row = Gtk.Template.Child()
     optimize_stack = Gtk.Template.Child()
     optimize_button = Gtk.Template.Child()
@@ -158,7 +200,20 @@ class DeckOptionsDialog(Adw.PreferencesDialog):
         self._stop = threading.Event()  # set when the dialog closes: the optimizer stops
         self._optimizing = False
         self._review_count = 0
+        self._snapshot = None  # the preset's cards as workload.simulate() takes them
+        self._estimate_source = None  # the pending restart of the simulation
+        self._estimate_cancel = threading.Event()  # set to drop the running simulation
         self._add_actions()
+        self.easy_day_rows = []
+        for name in weekday_names():
+            row = Adw.ComboRow(title=name, use_markup=False, model=Gtk.StringList.new(
+                [_('Normal'), _('Reduced'), _('Minimum')]))
+            connect_weak(row, 'notify::selected', self._on_workload_changed)
+            self.easy_days_row.add_row(row)
+            self.easy_day_rows.append(row)
+        connect_weak(self.load_balancing_row, 'notify::active', self._on_workload_changed)
+        for row in (self.new_per_day_row, self.reviews_per_day_row):
+            connect_weak(row, 'notify::value', self._on_workload_changed)
         self.preset_row.set_model(Gtk.StringList())
         self.preset_row.connect('notify::selected', self._on_preset_selected)
         self.retention_adjustment.connect('value-changed', self._on_retention_changed)
@@ -209,10 +264,17 @@ class DeckOptionsDialog(Adw.PreferencesDialog):
             ngettext('Used by {n} deck', 'Used by {n} decks', len(users)).format(n=len(users)))
         self._preset_actions['delete'].set_enabled(self.config.id != DEFAULT_ID)
         self._load_review_count()
+        self._snapshot = None
+        self._queue_estimate()
 
     def _load_fields(self, config):
         self.new_per_day_row.set_value(config.new_per_day)
         self.reviews_per_day_row.set_value(config.reviews_per_day)
+        self.load_balancing_row.set_active(bool(config.load_balancing))
+        for row, value in zip(self.easy_day_rows, workload.normalize_easy_days(config.easy_days),
+                              strict=True):
+            row.set_selected(EASY_DAY_CHOICES.index(value))
+        self._on_workload_changed()
         self.study_mode_row.set_selected(_index(STUDY_MODES, config.study_mode))
         self.retention_adjustment.set_value(config.desired_retention)
         self._on_retention_changed()
@@ -274,8 +336,72 @@ class DeckOptionsDialog(Adw.PreferencesDialog):
         retention = self.retention_adjustment.get_value()
         self.retention_value.set_text(f'{round(retention * 100)}%')
         self.retention_subtitle.set_text(retention_sentence(retention))
-        params = self.config.parameters() if self.config else list(fsrs.DEFAULT_PARAMETERS)
-        self.retention_estimate.set_text(estimate_text(retention, params))
+        self._queue_estimate()
+
+    def _on_workload_changed(self, *_args):
+        balancing = self.load_balancing_row.get_active()
+        self.easy_days_row.set_sensitive(balancing)
+        if not balancing:
+            self.easy_days_row.set_expanded(False)
+        self.easy_days_row.set_subtitle(easy_days_summary(self._easy_days(), balancing))
+        self._queue_estimate()
+
+    def _easy_days(self):
+        return [EASY_DAY_CHOICES[row.get_selected()] for row in self.easy_day_rows]
+
+    # -- the workload estimate ---------------------------------------------------------------
+
+    def _queue_estimate(self):
+        """Simulate the workload again in a moment (a slider drag restarts it once)."""
+        if self._loading or self.config is None or self._stop.is_set():
+            return
+        if self._estimate_source is not None:
+            GLib.source_remove(self._estimate_source)
+        self._estimate_source = GLib.timeout_add(ESTIMATE_DELAY_MS, self._start_estimate)
+
+    def _start_estimate(self):
+        self._estimate_source = None
+        self._estimate_cancel.set()  # a simulation still running is out of date
+        if self._stop.is_set() or self.config is None:
+            return GLib.SOURCE_REMOVE
+        if self._snapshot is None:
+            self._snapshot = workload.snapshot(self.collection, self._decks_on_preset())
+        cards, new_cards = self._snapshot
+        config = self.collect()
+        if not cards and not new_cards:
+            self.retention_estimate.set_text(
+                estimate_text(config.desired_retention, config.parameters()))
+            return GLib.SOURCE_REMOVE
+        cancel = self._estimate_cancel = threading.Event()
+        stop = self._stop
+        arguments = dict(
+            new_cards=new_cards, new_per_day=config.new_per_day,
+            reviews_per_day=config.reviews_per_day, maximum_interval=config.maximum_interval,
+            learning_steps=len(config.learning_steps),
+            relearning_steps=len(config.relearning_steps),
+            load_balancing=config.load_balancing, easy_days=list(config.easy_days),
+            today=self.collection.today())
+        params = config.parameters()
+        retention = config.desired_retention
+
+        def run():
+            try:
+                result = workload.simulate(
+                    cards, params, retention,
+                    should_stop=lambda: cancel.is_set() or stop.is_set(), **arguments)
+            except Exception:
+                log.exception('simulating the workload')
+                result = None
+            if result is not None:
+                GLib.idle_add(self._on_estimated, cancel, result)
+
+        threading.Thread(target=run, name='retain-workload', daemon=True).start()
+        return GLib.SOURCE_REMOVE
+
+    def _on_estimated(self, cancel, result):
+        if not cancel.is_set() and not self._stop.is_set():
+            self.retention_estimate.set_text(workload_text(result))
+        return GLib.SOURCE_REMOVE
 
     def _on_steps_changed(self, *_args):
         for row in (self.learning_steps_row, self.relearning_steps_row):
@@ -292,6 +418,8 @@ class DeckOptionsDialog(Adw.PreferencesDialog):
         config = self.config.copy()
         config.new_per_day = int(self.new_per_day_row.get_value())
         config.reviews_per_day = int(self.reviews_per_day_row.get_value())
+        config.load_balancing = self.load_balancing_row.get_active()
+        config.easy_days = self._easy_days()
         config.study_mode = STUDY_MODES[self.study_mode_row.get_selected()]
         config.desired_retention = round(self.retention_adjustment.get_value(), 2)
         for row, field in ((self.learning_steps_row, 'learning_steps'),
@@ -326,6 +454,9 @@ class DeckOptionsDialog(Adw.PreferencesDialog):
 
     def _on_closed(self, *_args):
         self._stop.set()
+        if self._estimate_source is not None:
+            GLib.source_remove(self._estimate_source)
+            self._estimate_source = None
         self.save()
 
     # -- presets -----------------------------------------------------------------------------

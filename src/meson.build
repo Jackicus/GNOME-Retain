@@ -97,6 +97,7 @@ install_data(
   'stats.py',
   'template.py',
   'window.py',
+  'workload.py',
   install_dir: moduledir,
 )
 

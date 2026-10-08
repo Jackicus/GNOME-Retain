@@ -107,6 +107,24 @@ form, one right answer (Haladyna, Downing & Rodriguez 2002); three options are a
 four (Rodriguez 2005). Anki's typed answers (rslib typeanswer.rs) diff after NFC, with `ci`
 and `nc` options, and never grade.
 
+## Load balancing and easy days (October 2026)
+
+Anki 24.11 replaced the uniform fuzz pick with a load balancer (rslib
+src/scheduler/states/load_balancer.rs, fuzz.rs): per preset, it counts the cards due on each
+of the next 99 days; for an interval of 90 days or less it weighs each day of the
+constrained fuzz range by (1/count)^2.15 × (1/interval)^3 (an empty day weighs 1.0), the
+interval factor added because without it intervals drifted late; with bury siblings on, a day
+holding a sibling gets 0.000001 and the five days either side 0.2 to 1.0. It draws by weight
+with the card's fuzz seed. Easy days (`easyDaysPercentages` in the deck config, seven floats
+Monday first: 1.0 Normal, 0.5 Reduced, 0.0 Minimum; any other value reads as Reduced) give a
+Minimum day a factor of 0.0001, and a Reduced day 1 or 0.0001 by whether its count over 0.5
+exceeds the other days' count over their summed factors. The balancer exists only while the
+collection-wide `loadBalancerEnabled` (default true, Preferences → Review) is on, so easy days
+need it. Anki's simulator (rslib scheduler/fsrs/simulator.rs over fsrs-rs src/simulation.rs)
+runs a deck's cards for 365 days with first-rating proportions 0.24/0.094/0.495/0.171,
+recall ratings Hard/Good/Easy 0.224/0.631/0.145, the daily limits, and the same balancer
+applied after each interval.
+
 ## Sources
 
 Anki forums (threads 17042, 66053, 43692, 929, 30172, 3651, 20906, 6000, 41667, 23621,
@@ -120,4 +138,6 @@ AnkiDroid database wiki, and PEP 784. For speech: github.com/project-spiel/libsp
 (spiel-speaker.c, spiel-registry.c), project-spiel.org, spiel-it's manifest,
 speech-provider-piper, brailcom/speechd's client.py, rhasspy/piper-voices, OHF-Voice/piper1-gpl
 1.7.0, espeak-ng issue 366, Anki's qt/aqt/tts.py and the templates manual, Mozilla bug
-1857367.
+1857367. For load balancing: ankitects/anki's rslib scheduler/states/load_balancer.rs,
+fuzz.rs, review.rs, scheduler/fsrs/simulator.rs, deckconfig/schema11.rs, config/bool.rs and
+ts/routes/deck-options/EasyDays.svelte; open-spaced-repetition/fsrs-rs src/simulation.rs.

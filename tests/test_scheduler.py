@@ -8,7 +8,7 @@ import unittest
 
 from tests import ROOT  # noqa: F401
 from tests.support import Clock, add_basic, temporary_collection
-from retain import fsrs
+from retain import days, fsrs, workload
 from retain.deck_config import DEFAULT_ID, LEECH_TAG, DeckConfig
 from retain.fsrs import AGAIN, EASY, GOOD, HARD
 from retain.scheduler import LIMITS_KEY, Scheduler, Session, describe_interval, format_interval
@@ -267,6 +267,90 @@ class ReviewTest(SchedulerCase):
         self.assertEqual(self.collection.undo(), 'Good')
         self.assertEqual(self.collection.card(card.id), card)
         self.assertEqual(self.collection.reviews_of(card.id), [])
+
+
+class LoadBalancingTest(SchedulerCase):
+    """The preset's load balancer (workload.py) through answers."""
+
+    def setUp(self):
+        super().setUp()
+        self.card = self.add_cards(1)[0]
+
+    def load(self, offsets, per_day, deck=None):
+        """`per_day` review cards due on each of `offsets` days from today."""
+        cards = self.add_cards(len(offsets) * per_day, deck=deck, prefix='load')
+        for index, card in enumerate(cards):
+            self.collection.db.execute(
+                'UPDATE cards SET state = ?, due = ?, interval = 5, stability = 5 WHERE id = ?',
+                ('review', self.today() + offsets[index // per_day], card.id))
+
+    def good_intervals(self, ids=range(2000, 2012)):
+        intervals = []
+        for card_id in ids:
+            card = self.make_review(self.card, interval=10, stability=12.0, card_id=card_id)
+            intervals.append(int(self.answer(card, GOOD).interval))
+            self.collection.undo()
+        return intervals
+
+    def test_a_review_goes_to_a_light_day_of_its_range(self):
+        self.load(range(1, 60, 2), 6)  # odd days crowded, even days free
+        balanced = self.good_intervals()
+        self.assertTrue(all(interval % 2 == 0 for interval in balanced), balanced)
+        self.configure(load_balancing=False)
+        fuzzed = self.good_intervals()
+        self.assertTrue(any(interval % 2 for interval in fuzzed), fuzzed)
+
+    def test_it_stays_in_the_fuzz_range_and_order(self):
+        self.load(range(1, 40, 3), 4)
+        for card_id in range(3000, 3010):
+            intervals = {}
+            for rating in (HARD, GOOD, EASY):
+                card = self.make_review(self.card, interval=10, stability=12.0, card_id=card_id)
+                labels = self.scheduler.preview(card, now=self.now)
+                after = self.answer(card, rating)
+                self.assertEqual(format_interval(after.interval * DAY, True), labels[rating])
+                intervals[rating] = after.interval
+                self.collection.undo()
+            self.assertLess(intervals[HARD], intervals[GOOD])
+            self.assertLess(intervals[GOOD], intervals[EASY])
+            self.assertGreaterEqual(intervals[GOOD], 11)
+
+    def test_only_the_presets_decks_count(self):
+        other = self.collection.add_deck('French')
+        light = self.collection.add_deck_config(DeckConfig(name='Light'))
+        self.collection.set_deck_config(other.id, light.id)
+        self.load(range(2, 60, 2), 6, deck=other)  # even days crowded, but on another preset
+        self.load(range(1, 60, 2), 6)
+        self.assertTrue(all(interval % 2 == 0 for interval in self.good_intervals()))
+
+    def test_easy_days_keep_reviews_off_minimum_days(self):
+        free = {days.weekday(self.today() + 1), days.weekday(self.today() + 4)}
+        easy = [workload.NORMAL if weekday in free else workload.MINIMUM
+                for weekday in range(7)]
+        self.configure(easy_days=easy)
+        weekdays = {days.weekday(self.today() + interval) for interval in self.good_intervals()}
+        self.assertLessEqual(weekdays, free)
+
+    def test_a_sibling_day_is_avoided_when_burying(self):
+        both = self.collection.notetype_by_name('Basic (and reversed card)')
+        note = self.collection.add_note(both.id, self.deck.id, ['uno', 'one'])
+        card, sibling = self.collection.cards_of_note(note.id)
+        card = self.make_review(card, interval=10, stability=12.0)
+        first = int(self.answer(card, GOOD).interval)
+        self.collection.undo()
+        self.collection.db.execute('UPDATE cards SET state = ?, due = ? WHERE id = ?',
+                                   ('review', self.today() + first, sibling.id))
+        card = self.collection.card(card.id)
+        self.assertNotEqual(int(self.answer(card, GOOD).interval), first)
+        self.collection.undo()
+        self.configure(bury_siblings=False)
+        self.assertEqual(self.scheduler._sibling_days(card, self.today()), [first])
+
+    def test_due_load_counts_unsuspended_reviews_ahead(self):
+        self.load([1, 1, 3], 1)
+        loads = self.scheduler.due_load([self.deck.id], self.today())
+        self.assertEqual(loads, {1: 2, 3: 1})
+        self.assertEqual(self.scheduler.due_load([], self.today()), {})
 
 
 class PreviewTest(SchedulerCase):
