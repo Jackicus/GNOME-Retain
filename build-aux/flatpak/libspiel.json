@@ -1,0 +1,26 @@
+{
+  "name": "libspiel",
+  "x-comment": "GNOME's speech synthesis framework; not in the GNOME 50 runtime.",
+  "buildsystem": "meson",
+  "config-opts": [
+    "-Dtests=false",
+    "-Ddocs=false",
+    "-Dlibspeechprovider:tests=false",
+    "-Dlibspeechprovider:docs=false"
+  ],
+  "sources": [
+    {
+      "type": "git",
+      "url": "https://github.com/project-spiel/libspiel.git",
+      "tag": "SPIEL_1_0_4",
+      "commit": "2ab0230a7e685c57b5cca0498e9ddbad56c2f61e"
+    },
+    {
+      "type": "git",
+      "url": "https://github.com/project-spiel/libspeechprovider.git",
+      "tag": "SPEECHPROVIDER_1_0_3",
+      "commit": "07e6a2a4f1df7149966588e57daf43336eba28ed",
+      "dest": "subprojects/libspeechprovider"
+    }
+  ]
+}

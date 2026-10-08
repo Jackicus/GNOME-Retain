@@ -1,0 +1,16 @@
+{
+  "name": "blueprint-compiler",
+  "x-comment": "The SDK ships 0.20; the UI needs 0.22. Build-time only.",
+  "buildsystem": "meson",
+  "cleanup": [
+    "*"
+  ],
+  "sources": [
+    {
+      "type": "git",
+      "url": "https://gitlab.gnome.org/GNOME/blueprint-compiler.git",
+      "tag": "v0.22.2",
+      "commit": "ed35ac74de0c1bb1f5e852410b97edd1f08904c9"
+    }
+  ]
+}
