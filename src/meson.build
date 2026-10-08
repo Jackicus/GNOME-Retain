@@ -26,6 +26,9 @@ foreach blueprint : files(
     'dialogs/custom_study.blp',
     'dialogs/import_export.blp',
     'dialogs/preferences.blp',
+    'dialogs/notetypes.blp',
+    'dialogs/notetype_page.blp',
+    'dialogs/template_page.blp',
     'window.blp',
   )
   blueprints += custom_target(
@@ -120,6 +123,7 @@ install_data(
   'dialogs/deck_name.py',
   'dialogs/deck_options.py',
   'dialogs/import_export.py',
+  'dialogs/notetypes.py',
   'dialogs/preferences.py',
   'dialogs/shortcuts.py',
   install_dir: moduledir / 'dialogs',

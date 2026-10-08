@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Jack Tully
+
+using Gtk 4.0;
+using Adw 1;
+
+// A card template's page in Manage Note Types (dialogs/notetypes.py): the front, the back
+// and the note type's styling, one at a time in a code editor (made in code: GtkSourceView
+// when it is there), and a preview of the card below it.
+template $RetainTemplatePage: Adw.NavigationPage {
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {}
+
+    [top]
+    Adw.Banner problem_banner {
+      button-label: _("_Revert");
+      use-markup: false;
+      revealed: false;
+    }
+
+    content: Box {
+      orientation: vertical;
+      spacing: 12;
+      margin-top: 6;
+      margin-bottom: 12;
+      margin-start: 12;
+      margin-end: 12;
+
+      Adw.ToggleGroup side_group {
+        halign: center;
+        homogeneous: true;
+        active-name: "front";
+
+        Adw.Toggle {
+          name: "front";
+          label: _("Front");
+          tooltip: _("The front template: what the card asks");
+        }
+
+        Adw.Toggle {
+          name: "back";
+          label: _("Back");
+          tooltip: _("The back template: what the answer shows");
+        }
+
+        Adw.Toggle {
+          name: "styling";
+          label: _("Styling");
+          tooltip: _("The CSS every card of the note type shares");
+        }
+      }
+
+      ScrolledWindow editor_scroll {
+        vexpand: true;
+        height-request: 140;
+        hscrollbar-policy: never;
+
+        styles [
+          "card",
+        ]
+      }
+
+      Box {
+        spacing: 6;
+
+        Label {
+          label: _("Preview");
+          xalign: 0;
+          hexpand: true;
+
+          styles [
+            "heading",
+          ]
+        }
+
+        Label preview_caption {
+          xalign: 1;
+          ellipsize: end;
+
+          styles [
+            "caption",
+            "dimmed",
+          ]
+        }
+      }
+
+      Adw.Bin {
+        height-request: 180;
+        vexpand: false;
+
+        styles [
+          "card",
+        ]
+
+        child: $RetainCardView card_view {};
+      }
+    };
+  };
+}

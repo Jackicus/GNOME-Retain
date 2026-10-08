@@ -108,3 +108,9 @@ textview.field-editor:focus-within {
 .review-counts {
   margin-top: -2px;
 }
+
+/* Manage Note Types (dialogs/notetypes.py): the template editor's text sits on its card. */
+textview.template-editor,
+textview.template-editor > text {
+  background: none;
+}

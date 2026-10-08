@@ -32,6 +32,9 @@ dependency('pygobject-3.0', version: '>= 3.50')
 # The card face is rendered by WebKitGTK (src/widgets/card_view.py); without it at run time
 # the app falls back to a plain rendering, so the dependency is a build-time check only.
 dependency('webkitgtk-6.0', required: false)
+# The note type editor's code editor is GtkSourceView's (src/dialogs/notetypes.py); without
+# it a plain monospace text view stands in.
+dependency('gtksourceview-5', required: false)
 
 pkgdatadir = get_option('prefix') / get_option('datadir') / meson.project_name()
 moduledir = pkgdatadir / 'retain'
