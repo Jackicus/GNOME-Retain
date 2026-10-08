@@ -86,7 +86,8 @@ def export_package(collection, path, deck_id=None, with_scheduling=True, include
     _report(progress, 0.0, _('Collecting cards…'))
     deck_ids = _deck_ids(collection, deck_id)
     decks = [apkg.Deck(original_id=deck.id, name=deck.name,
-                       description=deck.description or '', config=None)
+                       description=deck.description or '',
+                       config=collection.config_for_deck(deck.id).to_anki())
              for deck in collection.decks() if deck.id in set(deck_ids)]
     card_rows = _card_rows(collection, deck_ids)
     note_ids = sorted({row['note_id'] for row in card_rows})
