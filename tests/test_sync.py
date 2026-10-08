@@ -14,6 +14,7 @@ import unittest
 from unittest import mock
 
 from tests import ROOT  # noqa: F401
+from tests.gtk import wait_for
 from tests.support import add_basic, add_cloze
 from retain import schema, sync
 from retain.collection import Collection, card_key
@@ -510,19 +511,11 @@ class RunnerTest(SyncTestCase):
     """SyncRunner: the thread, and what it does to the main collection after."""
 
     def run_until_finished(self, runner):
-        from gi.repository import GLib
-
-        loop = GLib.MainLoop()
         finished = []
-
-        def on_finished(_runner, result, error):
-            finished.append((result, error))
-            loop.quit()
-
-        runner.connect('finished', on_finished)
+        runner.connect('finished', lambda _runner, result, error: finished.append(
+            (result, error)))
         self.assertTrue(runner.start())
-        GLib.timeout_add_seconds(20, loop.quit)
-        loop.run()
+        self.assertTrue(wait_for(lambda: finished, timeout=20))
         self.assertEqual(len(finished), 1)
         return finished[0]
 

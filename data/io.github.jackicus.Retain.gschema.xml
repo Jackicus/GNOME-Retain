@@ -69,5 +69,20 @@
       <summary>Key for card-mining apps</summary>
       <description>When not empty, an AnkiConnect request must carry this key.</description>
     </key>
+    <key name="sync-folder" type="s">
+      <default>''</default>
+      <summary>Sync folder</summary>
+      <description>The folder Retain syncs the collection through, kept the same on each computer by a file-sync tool such as Syncthing or Nextcloud. Empty: no sync.</description>
+    </key>
+    <key name="sync-automatically" type="b">
+      <default>true</default>
+      <summary>Sync when Retain opens and closes</summary>
+      <description>Whether Retain syncs with the sync folder as it opens and before it closes, when a folder is set.</description>
+    </key>
+    <key name="sync-device-name" type="s">
+      <default>''</default>
+      <summary>This computer's name for sync</summary>
+      <description>What the other computers call this one in their list of devices. Empty: the computer's host name.</description>
+    </key>
   </schema>
 </schemalist>

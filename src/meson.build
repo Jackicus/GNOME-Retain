@@ -95,6 +95,7 @@ install_data(
   'sidebar.py',
   'speech.py',
   'stats.py',
+  'sync.py',
   'template.py',
   'window.py',
   'workload.py',

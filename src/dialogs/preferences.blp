@@ -5,7 +5,8 @@ using Gtk 4.0;
 using Adw 1;
 
 // Preferences (app.preferences, Ctrl+,): each switch and spin row bound to its setting in
-// preferences.py; the Collection group's rows act on the collection's folder and files.
+// preferences.py; the Collection group's rows act on the collection's folder and files; the
+// Sync group sets the sync folder and syncs, and Other Devices lists who else syncs there.
 // Row titles are header-capitalised, as Settings' are; subtitles say the rest.
 template $RetainPreferencesDialog: Adw.PreferencesDialog {
   Adw.PreferencesPage {
@@ -148,6 +149,64 @@ template $RetainPreferencesDialog: Adw.PreferencesDialog {
           valign: center;
         }
       }
+    }
+
+    Adw.PreferencesGroup {
+      title: _("Sync");
+      description: _("Keep the collection the same on your computers through a folder that Syncthing, Nextcloud or a similar tool keeps the same on each of them.");
+
+      Adw.ActionRow folder_row {
+        title: _("Folder");
+        use-markup: false;
+        subtitle-selectable: true;
+
+        [suffix]
+        Button forget_button {
+          icon-name: "edit-clear-symbolic";
+          tooltip-text: _("Stop Syncing");
+          valign: center;
+
+          styles [
+            "flat",
+          ]
+        }
+
+        [suffix]
+        Button choose_button {
+          label: _("C_hoose…");
+          use-underline: true;
+          valign: center;
+        }
+      }
+
+      Adw.EntryRow device_name_row {
+        title: _("This Computer’s Name");
+      }
+
+      Adw.ActionRow sync_row {
+        title: _("Last Synced");
+
+        [suffix]
+        Adw.Spinner sync_spinner {
+          visible: false;
+        }
+
+        [suffix]
+        Button sync_button {
+          label: _("_Sync Now");
+          use-underline: true;
+          valign: center;
+        }
+      }
+
+      Adw.SwitchRow auto_row {
+        title: _("Sync Automatically");
+        subtitle: _("When Retain opens and before it closes");
+      }
+    }
+
+    Adw.PreferencesGroup devices_group {
+      title: _("Other Devices");
     }
   }
 }

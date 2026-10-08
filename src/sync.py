@@ -85,6 +85,7 @@ SEEN_KEY = 'sync_seen'            # {snapshot file name: [mtime_ns, size]} merge
 WRITTEN_KEY = 'sync_written'      # the fingerprint of the collection last written
 MEDIA_KEY = 'sync_media'          # {name: [size, local mtime_ns, shared mtime_ns]} same
 LAST_KEY = 'sync_last'            # when this device last synced
+STALE_AFTER = 86400               # seconds after which a left temporary file is removed
 TABLES = ('notes', 'cards', 'decks', 'notetypes', 'deck_configs', 'revlog', 'config')
 CARD_STATE = ('deck_id', 'state', 'due', 'interval', 'stability', 'difficulty', 'reps',
               'lapses', 'left', 'last_review', 'flag', 'suspended', 'buried')
@@ -267,6 +268,17 @@ def _check_folder(folder):
                             .format(path=folder)) from error
     (folder / DEVICES).mkdir(exist_ok=True)
     (folder / MEDIA).mkdir(exist_ok=True)
+    _remove_stale_temporaries(folder / DEVICES)
+    _remove_stale_temporaries(folder / MEDIA)
+
+
+def _remove_stale_temporaries(directory, age=STALE_AFTER):
+    """Our temporary files a device left when it stopped mid-write, a day on."""
+    cutoff = time.time() - age
+    for path in directory.glob('.retain-*.tmp'):
+        with contextlib.suppress(OSError):
+            if path.stat().st_mtime < cutoff:
+                path.unlink()
 
 
 # The sync

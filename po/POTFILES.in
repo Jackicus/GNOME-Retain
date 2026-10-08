@@ -11,6 +11,7 @@ src/collection.py
 src/scheduler.py
 src/shortcuts.py
 src/importing.py
+src/sync.py
 src/exporting.py
 src/notetypes.py
 src/pages/today.py

@@ -16,7 +16,7 @@ through scripts/headless.sh so the window opens on a private display. The demo c
 animations are off. --page is a sidebar key: today, browse, stats, or deck:NAME (a deck's
 full name, "Spanish::Verbs"). --study pushes the review page of DECK (the --page's deck, or
 the first deck with cards due), --answer with its answer shown. --dialog opens a dialog over
-the page and shoots it. --search types a query into the browser. In the narrow layout the
+the page and shoots it (--scroll then scrolls the dialog). --search types a query into the browser. In the narrow layout the
 shot shows the sidebar, or the page when --page is given (--sidebar keeps the sidebar).
 """
 
@@ -113,6 +113,8 @@ def search(window):
 
 def scroll(window):
     page = window.navigation_view.get_visible_page()
+    if args.dialog:  # the dialog's content, not the page under it
+        page = next(harness.descendants(dialog_window(window), Adw.Dialog), page)
     for scrolled in harness.descendants(page, Gtk.ScrolledWindow):
         if scrolled.props.vscrollbar_policy != Gtk.PolicyType.NEVER:
             adjustment = scrolled.get_vadjustment()
@@ -195,10 +197,12 @@ def plan():
         steps.append((study, 1500))
     if args.search:
         steps.append((search, 1200))
-    if args.scroll:
+    if args.scroll and not args.dialog:
         steps.append((scroll, 600))
     if args.dialog:
         steps.append((open_dialog, 1200))
+        if args.scroll:
+            steps.append((scroll, 600))
     GLib.timeout_add(800, shoot)
     return GLib.SOURCE_REMOVE
 

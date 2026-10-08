@@ -11,7 +11,10 @@ in the data directory default_data_dir() names, or RETAIN_DATA_DIR; `--demo` use
 an invented collection, never the real one) and makes the Scheduler over it, and starts the
 AnkiConnect API (ankiconnect.py) when card-mining apps are allowed (the ankiconnect-enabled
 setting; a port already taken, by Anki itself, is toasted when the switch is turned on);
-do_activate builds the Window (imported only then).
+do_activate builds the Window (imported only then) and, with a sync folder set and
+sync-automatically on, syncs (sync.py, `app.sync` the SyncRunner); closing the window syncs
+again first (sync_before_closing(), the window hidden meanwhile). `sync_now()` is Sync Now:
+it toasts what the sync brought, or reports why it failed.
 `.apkg` and `.colpkg` files given on the command line (or opened from Files) open the import
 dialog. app.* actions: add, new-deck, import, export, undo, preferences, shortcuts, about,
 quit. Every message for the user goes through toast(); every error through report(), which
@@ -35,9 +38,11 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 from .collection import Collection, CollectionError, default_data_dir  # noqa: E402
 from .scheduler import Scheduler  # noqa: E402
 from .shortcuts import ACCELS  # noqa: E402
+from .sync import SyncRunner, describe_result  # noqa: E402
 
 log = logging.getLogger(__name__)
 
+CLOSING_SYNC_TIMEOUT = 60  # seconds a closing window waits for its sync at most
 RESOURCE_PATH = '/io/github/jackicus/Retain'
 PACKAGE_SUFFIXES = ('.apkg', '.colpkg')
 
@@ -60,6 +65,9 @@ class Application(Adw.Application):
         self.collection = None  # in do_startup
         self.scheduler = None  # in do_startup
         self.ankiconnect = None  # ankiconnect.Server while card-mining apps are allowed
+        self.sync = None  # in do_startup: sync.SyncRunner
+        self._sync_quiet = False  # the running sync toasts only news (an automatic one)
+        self._closing = None  # the window waiting for its closing sync
         self._pending_files = []
         self.add_main_option('demo', 0, GLib.OptionFlags.NONE, GLib.OptionArg.NONE,
                              _('Show an invented collection (build/demo), not yours'), None)
@@ -93,6 +101,8 @@ class Application(Adw.Application):
         self.settings.connect('changed::learn-ahead-minutes', self._on_learn_ahead_changed)
         self.settings.connect('changed::ankiconnect-enabled', self._on_ankiconnect_changed)
         self.settings.connect('changed::ankiconnect-key', self._on_ankiconnect_key_changed)
+        self.sync = SyncRunner(self.settings, self.collection)
+        self.sync.connect('finished', self._on_sync_finished)
         self._add_actions()
         for name, accels in ACCELS.items():
             self.set_accels_for_action(name, accels)
@@ -118,6 +128,8 @@ class Application(Adw.Application):
             from .window import Window
 
             window = Window(application=self)
+            if self.settings.get_boolean('sync-automatically') and not self.demo:
+                self.sync_now(quiet=True)
         window.present()
 
     def do_open(self, files, _hint):
@@ -155,6 +167,69 @@ class Application(Adw.Application):
         self.scheduler.learn_ahead_minutes = settings.get_int(key)
 
     # -- actions ---------------------------------------------------------------------------
+
+    # -- sync (sync.py) ----------------------------------------------------------------------
+
+    def sync_now(self, quiet=False):
+        """Sync with the sync folder in a thread; False when none is set. A quiet sync (the
+        automatic one) toasts only when something came in."""
+        if not self.sync.running:
+            self._sync_quiet = quiet
+        elif not quiet:
+            self._sync_quiet = False
+        return self.sync.start()
+
+    def _on_sync_finished(self, _runner, result, error):
+        quiet, self._sync_quiet = self._sync_quiet, False
+        if self._closing is not None:
+            if error:
+                log.warning('sync before closing failed: %s', error)
+            return
+        if error:
+            # Translators: before the reason a sync failed.
+            self.report(CollectionError(error), context=_('Not synced'))
+        elif result is not None and (not quiet or result.changed() or result.problems):
+            self.toast(describe_result(result))
+
+    def sync_before_closing(self, window):
+        """Sync before the window closes, when automatic sync is on: the window hides and is
+        destroyed once the sync is done (or after CLOSING_SYNC_TIMEOUT). True when the close
+        must wait."""
+        if self._closing is not None:
+            return True
+        if (self.demo or not self.settings.get_boolean('sync-automatically')
+                or not self.sync.folder):
+            return False
+        self._closing = window
+        window.set_visible(False)
+        handlers = []
+
+        def finish(*_args):
+            if self.sync.running or self.sync.again:
+                return GLib.SOURCE_REMOVE  # the closing sync is the one after this
+            for handler in handlers:
+                self.sync.disconnect(handler)
+            handlers.clear()
+            if self._closing is window:
+                self._closing = None
+                window.destroy()
+            return GLib.SOURCE_REMOVE
+
+        def finish_anyway():
+            if self._closing is window:
+                log.warning('the closing sync took too long; closing without it')
+                self.sync.again = False
+                for handler in handlers:
+                    self.sync.disconnect(handler)
+                handlers.clear()
+                self._closing = None
+                window.destroy()
+            return GLib.SOURCE_REMOVE
+
+        handlers.append(self.sync.connect('finished', finish))
+        self.sync_now(quiet=True)
+        GLib.timeout_add_seconds(CLOSING_SYNC_TIMEOUT, finish_anyway)
+        return True
 
     # -- card-mining apps (ankiconnect.py) ---------------------------------------------------
 

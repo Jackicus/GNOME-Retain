@@ -13,7 +13,12 @@ whether card-mining apps may add notes through the AnkiConnect API (ankiconnect-
 and the key they must send (ankiconnect-key). Collection: where the collection is, with Open
 Folder; the backups, with Back Up Now (Collection.backup(force=True)) and the folder; and
 Check Media, which counts the files no note refers to and the files notes refer to that are
-missing, in an alert that offers to delete the unused ones.
+missing, in an alert that offers to delete the unused ones. Sync (sync.py): the folder
+(sync-folder, chosen through the file chooser portal; choosing one syncs at once), this
+computer's name for the others (sync-device-name, the host name until changed), Sync Now
+(app.sync_now(), with a spinner and the sync's progress in place of the last sync's time)
+and Sync Automatically (sync-automatically); Other Devices lists the devices that synced
+through the folder, from their devices/ID.json, with when each last did.
 
 The switches are bound to their settings with Gio.Settings.bind; the spin rows by hand,
 since the keys are integers (or a factor) and the rows show doubles. The bindings are let go
@@ -28,6 +33,8 @@ from gettext import ngettext
 
 from gi.repository import Adw, Gio, GLib, Gtk
 
+from .. import sync
+
 log = logging.getLogger(__name__)
 
 # The switch rows bound one to one to their settings: (template child, key).
@@ -38,6 +45,7 @@ SWITCHES = (
     ('read_aloud_row', 'read-aloud'),
     ('two_button_row', 'two-button-mode'),
     ('ankiconnect_row', 'ankiconnect-enabled'),
+    ('auto_row', 'sync-automatically'),
 )
 # The spin rows: (template child, key, the row's value for the setting's 1).
 SPINS = (
@@ -75,6 +83,15 @@ class PreferencesDialog(Adw.PreferencesDialog):
     backup_button = Gtk.Template.Child()
     media_row = Gtk.Template.Child()
     media_button = Gtk.Template.Child()
+    folder_row = Gtk.Template.Child()
+    forget_button = Gtk.Template.Child()
+    choose_button = Gtk.Template.Child()
+    device_name_row = Gtk.Template.Child()
+    sync_row = Gtk.Template.Child()
+    sync_spinner = Gtk.Template.Child()
+    sync_button = Gtk.Template.Child()
+    auto_row = Gtk.Template.Child()
+    devices_group = Gtk.Template.Child()
 
     def __init__(self, app, parent=None):
         super().__init__()
@@ -108,6 +125,24 @@ class PreferencesDialog(Adw.PreferencesDialog):
         self.location_row.set_subtitle(self._pretty(self.data_dir))
         self._update_backups()
 
+        settings.bind('sync-device-name', self.device_name_row, 'text',
+                      Gio.SettingsBindFlags.DEFAULT)
+        if not settings.get_string('sync-device-name').strip():
+            self.device_name_row.set_text(sync.default_device_name())
+        self.choose_button.connect('clicked', lambda *_args: self.choose_folder())
+        self.forget_button.connect('clicked', lambda *_args: self.forget_folder())
+        self.sync_button.connect('clicked', lambda *_args: self._app.sync_now())
+        self._device_rows = []
+        self._sync_message = None  # the running sync's progress
+        self._handlers.append((settings, settings.connect(
+            'changed::sync-folder', lambda *_args: self._update_sync())))
+        runner = app.sync
+        for signal, callback in (('started', self._on_sync_started),
+                                 ('progress', self._on_sync_progress),
+                                 ('finished', self._on_sync_finished)):
+            self._handlers.append((runner, runner.connect(signal, callback)))
+        self._update_sync()
+
     # -- settings ----------------------------------------------------------------------------
 
     def _read(self, key):
@@ -135,6 +170,7 @@ class PreferencesDialog(Adw.PreferencesDialog):
         for child, _key in SWITCHES:
             Gio.Settings.unbind(getattr(self, child), 'active')
         Gio.Settings.unbind(self.ankiconnect_key_row, 'text')
+        Gio.Settings.unbind(self.device_name_row, 'text')
         for source, handler in self._handlers:
             source.disconnect(handler)
         self._handlers = []
@@ -195,6 +231,87 @@ class PreferencesDialog(Adw.PreferencesDialog):
         self._app.toast(_('Backed up to {name}').format(name=path.name))
         return path
 
+    # -- sync --------------------------------------------------------------------------------
+
+    def choose_folder(self):
+        """Ask for the sync folder (the portal's folder chooser), then sync with it."""
+        dialog = Gtk.FileDialog(title=_('Choose a Sync Folder'), modal=True)
+        folder = self._settings.get_string('sync-folder')
+        if folder:
+            dialog.set_initial_folder(Gio.File.new_for_path(folder))
+        root = self.get_root()
+
+        def on_chosen(_dialog, result):
+            try:
+                chosen = dialog.select_folder_finish(result)
+            except GLib.Error as error:
+                if not error.matches(Gtk.DialogError.quark(), Gtk.DialogError.DISMISSED):
+                    self._app.report(error)
+                return
+            if chosen is not None and chosen.get_path():
+                self.set_folder(chosen.get_path())
+
+        dialog.select_folder(root if isinstance(root, Gtk.Window) else None, None, on_chosen)
+        return dialog
+
+    def set_folder(self, path):
+        """Sync through `path` from now on, starting now."""
+        self._settings.set_string('sync-folder', str(path))
+        self._app.sync_now()
+
+    def forget_folder(self):
+        self._settings.set_string('sync-folder', '')
+
+    def _on_sync_started(self, _runner):
+        self._sync_message = _('Syncing…')
+        self._update_sync()
+
+    def _on_sync_progress(self, _runner, _fraction, message):
+        self._sync_message = message
+        self._update_sync()
+
+    def _on_sync_finished(self, _runner, _result, _error):
+        self._sync_message = None
+        self._update_sync()
+
+    def _update_sync(self):
+        folder = self._settings.get_string('sync-folder')
+        running = self._app.sync.running
+        self.folder_row.set_subtitle(self._pretty(folder) if folder else _('None chosen'))
+        self.forget_button.set_visible(bool(folder))
+        for row in (self.device_name_row, self.sync_row, self.auto_row):
+            row.set_sensitive(bool(folder))
+        self.sync_button.set_sensitive(bool(folder) and not running)
+        self.sync_spinner.set_visible(running)
+        if running:
+            self.sync_row.set_subtitle(self._sync_message or _('Syncing…'))
+        else:
+            last = self._app.collection.get(sync.LAST_KEY)
+            self.sync_row.set_subtitle(_when(last) if last else _('Never'))
+        self._update_devices(folder)
+
+    def _update_devices(self, folder):
+        for row in self._device_rows:
+            self.devices_group.remove(row)
+        self._device_rows = []
+        self.devices_group.set_visible(bool(folder))
+        if not folder:
+            return
+        own = (self._app.collection.get(sync.DEVICE_KEY) or {}).get('id')
+        found = sync.devices(folder, own)
+        self.devices_group.set_description(
+            None if found else _('None yet: choose the same folder in Retain on your other '
+                                 'computers.'))
+        for device in found:
+            # Translators: {when} is a date and time.
+            row = Adw.ActionRow(use_markup=False,
+                                title=device['name'] or _('Unnamed Device'),
+                                subtitle=_('Last synced {when}').format(
+                                    when=_when(device['synced'])))
+            row.set_title_lines(1)
+            self.devices_group.add(row)
+            self._device_rows.append(row)
+
     def check_media(self):
         """Count the unused and the missing media files and say so in an alert, with
         Delete Unused when there are unused ones."""
@@ -242,6 +359,10 @@ class PreferencesDialog(Adw.PreferencesDialog):
         count = len(removed)
         self._app.toast(ngettext('Removed {} unused file', 'Removed {} unused files',
                                  count).format(count))
+
+
+def _when(timestamp):
+    return time.strftime('%x %H:%M', time.localtime(timestamp))
 
 
 def _list_names(names):
