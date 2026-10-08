@@ -101,11 +101,48 @@ template $RetainReviewPage: Adw.NavigationPage {
                   child: $RetainCardView card_view {};
                 }
 
-                // Shown for a {{type:…}} card until the answer is: Enter shows it.
+                // Shown for a {{type:…}} card, or in Type the Answer mode, until the answer
+                // is: Enter shows it.
                 Entry type_entry {
                   visible: false;
                   placeholder-text: _("Type the answer");
                   input-hints: no_spellcheck;
+                }
+
+                // Type the Answer mode, on the answer side: the verdict and the comparison.
+                Box typed_box {
+                  visible: false;
+                  orientation: vertical;
+                  spacing: 6;
+
+                  Label typed_verdict {
+                    xalign: 0;
+                    wrap: true;
+
+                    styles [
+                      "heading",
+                    ]
+                  }
+
+                  Label typed_diff {
+                    xalign: 0;
+                    wrap: true;
+                    selectable: true;
+                  }
+                }
+
+                // Choose from Options mode: the options, 1 to 4, then the right one marked.
+                ListBox choices_list {
+                  visible: false;
+                  selection-mode: none;
+
+                  accessibility {
+                    label: _("Options");
+                  }
+
+                  styles [
+                    "boxed-list",
+                  ]
                 }
               };
             };
@@ -385,6 +422,32 @@ menu more_menu {
     item {
       label: _("Read _Aloud");
       action: "review.read-aloud";
+    }
+  }
+
+  section {
+    submenu {
+      label: _("Study _Mode");
+
+      section {
+        item {
+          label: _("_Flip the Card");
+          action: "review.mode";
+          target: "flip";
+        }
+
+        item {
+          label: _("_Type the Answer");
+          action: "review.mode";
+          target: "type";
+        }
+
+        item {
+          label: _("_Choose from Options");
+          action: "review.mode";
+          target: "choice";
+        }
+      }
     }
   }
 

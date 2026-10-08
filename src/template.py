@@ -39,6 +39,7 @@ number) for `type:cloze:`; the review page draws the entry and the comparison th
     av_tags(text) -> [('sound', name) | ('tts', (lang, voices, speed, text))]   in order
     strip_tts_tags(text) -> str
     speech_text(html, lang='') -> str   what a voice reads (furigana give the reading in ja)
+    reading_forms(text) -> (kanji form, kana form)   a field with furigana, both ways
     typed_answer_diff(expected, typed) -> str
 
 `fields` maps field names to their HTML; `ord` is the template index (standard note types) or
@@ -516,6 +517,14 @@ def speech_text(text, lang=''):
         text = _RT.sub('', text)
     text = strip_html(_SOUND.sub('', text))
     return ' '.join(text.split())
+
+
+def reading_forms(text):
+    """A field with furigana (`漢字[かんじ]` or `<ruby>`) as (kanji form, kana form); the same
+    text twice when it has none."""
+    kanji = _RUBY.sub(lambda match: _RT.sub('', match[1]), text)
+    kana = _RUBY.sub(lambda match: ''.join(_RT.findall(match[1])) or match[1], text)
+    return (_furigana(kanji, lambda match: match[1]), _furigana(kana, lambda match: match[2]))
 
 
 def tts_tags(text):

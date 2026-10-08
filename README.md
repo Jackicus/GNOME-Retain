@@ -18,6 +18,8 @@ back, schedules with FSRS, and keeps the clutter out.
 - **Decks** nested as deep as you like, with new, learning and due counts in the sidebar.
 - **Cards** of every kind: basic, reversed, type in the answer, cloze deletions, and image
   occlusion (hide parts of a picture), all built in.
+- **Three study modes:** flip, type the answer (graded leniently), or choose it from options
+  drawn from the deck.
 - **Reviews with the keyboard:** Space turns the card, 1 to 4 grade it, and the buttons say
   how long each grade waits. Hard is not a fail. Ctrl+Z undoes a grade and shows the card
   again.

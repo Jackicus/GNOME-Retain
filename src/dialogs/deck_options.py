@@ -10,15 +10,15 @@
     reviews_estimate(retention, params)  # the change in reviews against 90%, in percent
 
 The Preset row lists the collection's presets (deck_config.py's DeckConfig rows); choosing
-one assigns it to the deck at once (collection.set_deck_config), and its menu adds (a copy of
-the shown one), renames or deletes a preset through deck_name.NameDialog. Everything else
-edits the shown preset: the daily limits, the desired retention (a scale with a plain
-sentence and an estimate of the reviews it costs or saves, from the forgetting curve's
-exponent), Optimize Parameters (optimizer.suggest in a thread over the revlog of every deck
-on the preset, cancelled by closing the dialog, stored on success) and, under Advanced,
-the steps, ordering, burying, leeches, the maximum interval and the FSRS parameters
-themselves. An entry that cannot be parsed turns red and is left out of the save. The edits
-are saved when the dialog closes, as one undo step, with a toast.
+one assigns it to the deck at once (collection.set_deck_config), and its menu adds (a copy
+of the shown one), renames or deletes a preset through deck_name.NameDialog. Everything else
+edits the shown preset: the daily limits, the study mode (flip, type or choose; answers.py),
+the desired retention (a scale with a plain sentence and an estimate of the reviews it costs
+or saves, from the forgetting curve's exponent), Optimize Parameters (optimizer.suggest in a
+thread over the revlog of every deck on the preset, cancelled by closing the dialog, stored
+on success) and, under Advanced, the steps, ordering, burying, leeches, the maximum interval
+and the FSRS parameters themselves. An entry that cannot be parsed turns red and is left out
+of the save. The edits are saved when the dialog closes, as one undo step, with a toast.
 """
 
 import logging
@@ -41,6 +41,7 @@ UNITS = {'': 1, 'm': 1, 'h': 60, 'd': 1440}
 NEW_ORDERS = ('added', 'random')
 NEW_MIXES = ('mix', 'after', 'before')
 LEECH_ACTIONS = ('tag', 'suspend')
+STUDY_MODES = ('flip', 'type', 'choice')
 REFERENCE_RETENTION = 0.9
 
 
@@ -124,6 +125,7 @@ class DeckOptionsDialog(Adw.PreferencesDialog):
     preset_menu_button = Gtk.Template.Child()
     new_per_day_row = Gtk.Template.Child()
     reviews_per_day_row = Gtk.Template.Child()
+    study_mode_row = Gtk.Template.Child()
     retention_value = Gtk.Template.Child()
     retention_scale = Gtk.Template.Child()
     retention_adjustment = Gtk.Template.Child()
@@ -211,6 +213,7 @@ class DeckOptionsDialog(Adw.PreferencesDialog):
     def _load_fields(self, config):
         self.new_per_day_row.set_value(config.new_per_day)
         self.reviews_per_day_row.set_value(config.reviews_per_day)
+        self.study_mode_row.set_selected(_index(STUDY_MODES, config.study_mode))
         self.retention_adjustment.set_value(config.desired_retention)
         self._on_retention_changed()
         self.learning_steps_row.set_text(format_steps(config.learning_steps))
@@ -289,6 +292,7 @@ class DeckOptionsDialog(Adw.PreferencesDialog):
         config = self.config.copy()
         config.new_per_day = int(self.new_per_day_row.get_value())
         config.reviews_per_day = int(self.reviews_per_day_row.get_value())
+        config.study_mode = STUDY_MODES[self.study_mode_row.get_selected()]
         config.desired_retention = round(self.retention_adjustment.get_value(), 2)
         for row, field in ((self.learning_steps_row, 'learning_steps'),
                            (self.relearning_steps_row, 'relearning_steps')):

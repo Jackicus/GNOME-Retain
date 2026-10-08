@@ -38,17 +38,18 @@ held weakly (a pushed page is dropped when popped: nothing may keep it alive).
 import contextlib
 import html as html_module
 import logging
+import random
 import re
 import time
 from gettext import gettext as _
 
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
-from .. import notetypes, speech, template
+from .. import answers, notetypes, speech, template
 from ..fsrs import AGAIN, EASY, GOOD, HARD
 from ..shortcuts import REVIEW
 from ..widgets.audio import Player
-from ..widgets.card_view import RetainCardView  # noqa: F401  (the template's child)
+from ..widgets.card_view import RetainCardView, html_to_markup  # noqa: F401
 from ..widgets.counts import RetainCounts, kind_of  # noqa: F401  (the template's child)
 from ..widgets.util import connect_weak
 from . import app
@@ -85,6 +86,10 @@ class ReviewPage(Adw.NavigationPage):
     content_stack = Gtk.Template.Child()
     card_view = Gtk.Template.Child()
     type_entry = Gtk.Template.Child()
+    typed_box = Gtk.Template.Child()
+    typed_verdict = Gtk.Template.Child()
+    typed_diff = Gtk.Template.Child()
+    choices_list = Gtk.Template.Child()
     finished_page = Gtk.Template.Child()
     answer_stack = Gtk.Template.Child()
     show_answer_button = Gtk.Template.Child()
@@ -117,6 +122,14 @@ class ReviewPage(Adw.NavigationPage):
         self._answer = ''
         self._typed_expected = None  # the text a {{type:…}} question asks for
         self._typed_result = None
+        config = self.collection.config_for_deck(deck_id)
+        self.mode = config.study_mode if config.study_mode in answers.MODES else 'flip'
+        self._card_mode = 'flip'  # the mode this card is asked in (flip when the mode can't)
+        self._expected = None     # (field, html) answering the card, in type and choice modes
+        self._choices = []        # [(html, correct)] in choice mode, in their order
+        self._choices_card = None  # the card id the choices were drawn for
+        self._picked = None       # the index of the option chosen
+        self._suggested = GOOD    # the grade Space and Enter give on the answer side
         self._shown_at = None
         self._last = None  # (card id, undo label) of the last answer or removal
         self._busy = False  # a change of the page's own making: no reload for it
@@ -208,6 +221,11 @@ class ReviewPage(Adw.NavigationPage):
         connect_weak(mark, 'activate', self._on_mark)
         group.add_action(mark)
         self._actions['mark'] = mark
+        mode = Gio.SimpleAction.new_stateful('mode', GLib.VariantType('s'),
+                                             GLib.Variant('s', self.mode))
+        connect_weak(mode, 'activate', self._on_mode)
+        group.add_action(mode)
+        self._actions['mode'] = mode
         flag = Gio.SimpleAction.new_stateful('flag', GLib.VariantType('i'), GLib.Variant('i', 0))
         connect_weak(flag, 'activate', self._on_flag)
         group.add_action(flag)
@@ -256,11 +274,13 @@ class ReviewPage(Adw.NavigationPage):
             if self.side == 'question':
                 self.show_answer()
             elif self.side == 'answer':
-                self.answer(GOOD)
+                self.answer(self._suggested)
             else:
                 return False
             return True
         if name in RATE_KEYS:
+            if self.side == 'question' and self._card_mode == 'choice':
+                return self.pick(RATINGS.index(RATE_KEYS[name]))
             return self.answer(RATE_KEYS[name])
         if self.card is None:
             return False
@@ -333,7 +353,33 @@ class ReviewPage(Adw.NavigationPage):
                                 occlusion=occlusion,
                                 scale=self.settings.get_double('card-text-scale'))
         self._typed_expected = self._expected_typed()
+        self._prepare_mode()
         self._update_state()
+
+    def _prepare_mode(self):
+        """The mode this card is asked in, with its answer and options: flip when the
+        mode cannot ask it (a cloze, a long answer, a {{type:}} card, too few options)."""
+        self._card_mode = 'flip'
+        self._expected = None
+        if self.mode == 'flip' or self._typed_expected is not None:
+            return
+        self._expected = answers.expected_answer(self.notetype, self.note, self.card.ord)
+        if self._expected is None:
+            return
+        if self.mode == 'type':
+            self._card_mode = 'type'
+            return
+        if self._choices_card != self.card.id:
+            field, correct = self._expected
+            decks = self.collection.deck_and_children(self.deck_id) or [self.card.deck_id]
+            wrong = answers.distractors(self.collection, self.note, self.notetype, field,
+                                        decks)
+            options = [(html, False) for html in wrong] + [(correct, True)]
+            random.shuffle(options)
+            self._choices = options
+            self._choices_card = self.card.id
+        if len(self._choices) >= 3:  # the right answer and at least two others
+            self._card_mode = 'choice'
 
     def _expected_typed(self):
         """The text a {{type:…}} span on the question asks for, or None."""
@@ -355,9 +401,13 @@ class ReviewPage(Adw.NavigationPage):
         self.side = 'question'
         self._typed_result = None
         self.card_view.show_question()
-        typed = self._typed_expected is not None
+        typed = self._typed_expected is not None or self._card_mode == 'type'
         self.type_entry.set_text('')
         self.type_entry.set_visible(typed)
+        self.typed_box.set_visible(False)
+        self._picked = None
+        self._fill_choices()
+        self._set_suggested(GOOD)
         self.answer_stack.set_visible_child_name('show')
         self.content_stack.set_visible_child_name('study')
         self.toolbar_view.set_reveal_bottom_bars(True)
@@ -375,10 +425,17 @@ class ReviewPage(Adw.NavigationPage):
                                                             self.type_entry.get_text())
             self.card_view.set_typed_result(self._typed_result)
             self.type_entry.set_visible(False)
+        elif self._card_mode == 'type':
+            self._show_typed_verdict(self.type_entry.get_text())
+            self.type_entry.set_visible(False)
+        elif self._card_mode == 'choice':
+            self._show_choice_result()
         self.side = 'answer'
         self.card_view.show_answer()
         self._update_intervals()
         self.answer_stack.set_visible_child_name('rate')
+        if self._suggested in self._buttons and self.get_mapped():
+            self._buttons[self._suggested].grab_focus()
         self._play_side('answer')
 
     def answer(self, rating):
@@ -491,6 +548,90 @@ class ReviewPage(Adw.NavigationPage):
         else:
             self.flag_button.remove_css_class('accent')
             self.flag_button.set_tooltip_text(_('Flag Card'))
+
+    # -- study modes (answers.py) -------------------------------------------------------------
+
+    def _fill_choices(self):
+        """The options of a choice card, numbered as the keys that pick them."""
+        while (row := self.choices_list.get_row_at_index(0)) is not None:
+            self.choices_list.remove(row)
+        show = self._card_mode == 'choice' and self.side == 'question'
+        self.choices_list.set_visible(show)
+        if not show:
+            return
+        for index, (html, _correct) in enumerate(self._choices):
+            row = Adw.ActionRow(title=template.strip_html(html), activatable=True,
+                                use_markup=False)
+            number = Gtk.Label(label=str(index + 1), width_chars=2)
+            number.add_css_class('dimmed')
+            number.add_css_class('numeric')
+            row.add_prefix(number)
+            row.connect('activated', lambda _row, index=index: self.pick(index))
+            self.choices_list.append(row)
+
+    def pick(self, index):
+        """Choose option `index` (0-based) of a choice card; True when there was one."""
+        if self.side != 'question' or self._card_mode != 'choice':
+            return False
+        if not 0 <= index < len(self._choices):
+            return False
+        self._picked = index
+        self.show_answer()
+        return True
+
+    def _show_choice_result(self):
+        """Mark the right option, and the one picked when it was wrong; suggest a grade."""
+        correct = self._picked is not None and self._choices[self._picked][1]
+        for index, (_html, right) in enumerate(self._choices):
+            row = self.choices_list.get_row_at_index(index)
+            if row is None:
+                continue
+            row.set_activatable(False)
+            if right:
+                row.add_css_class('success')
+                row.set_subtitle(_('Right answer'))
+            elif index == self._picked:
+                row.add_css_class('error')
+                row.set_subtitle(_('Your answer'))
+            else:
+                row.add_css_class('dimmed')
+        self._set_suggested(answers.choice_rating(correct, self.card))
+
+    def _show_typed_verdict(self, typed):
+        verdict = answers.grade_typed(self._expected[1], typed)
+        texts = {'exact': _('Correct'), 'close': _('Almost: counts as Hard'),
+                 'wrong': _('Not quite')}
+        classes = {'exact': 'success', 'close': 'warning', 'wrong': 'error'}
+        self.typed_verdict.set_text(texts[verdict.kind] if typed.strip() else _('No answer'))
+        for css in classes.values():
+            self.typed_verdict.remove_css_class(css)
+        self.typed_verdict.add_css_class(classes[verdict.kind])
+        self.typed_diff.set_markup(html_to_markup(template.typed_answer_diff(verdict.shown,
+                                                                             typed)))
+        self.typed_box.set_visible(True)
+        self._set_suggested(verdict.rating)
+
+    def _set_suggested(self, rating):
+        """The grade Space and Enter give, shown as the coloured answer button."""
+        self._suggested = rating
+        self._apply_settings()
+        for each, button in self._buttons.items():
+            if each == rating:
+                button.add_css_class('suggested-action')
+            else:
+                button.remove_css_class('suggested-action')
+        if rating in (HARD, EASY) and not self._buttons[rating].get_visible():
+            self._buttons[rating].set_visible(True)  # two-button mode still shows it now
+
+    def _on_mode(self, action, parameter):
+        mode = parameter.get_string()
+        if mode not in answers.MODES or mode == self.mode:
+            return
+        action.set_state(parameter)
+        self.mode = mode
+        if self.card is not None and self.side == 'question':
+            self._prepare_mode()
+            self.show_question()
 
     def _av_items(self, html):
         """The side's sounds (files that exist) and speech, in order, for the player."""

@@ -32,6 +32,7 @@ Application (main.py)    app.settings, app.collection; app.* actions; app.toast(
 ├─ Scheduler (scheduler.py)     what to show next and what an answer does (fsrs.py is the
 │                        memory model; deck_config.py the per-deck settings; days.py the day)
 ├─ template.py           Anki's card templates: {{Field}}, cloze, hints, type-in, conditionals
+├─ answers.py            study modes: a card's answer, typed-answer grading, distractors
 ├─ search.py             Anki's search syntax to SQL over schema.py's tables
 ├─ apkg.py               .apkg/.colpkg in and out (legacy and zstd packages), CSV/TSV in
 ├─ ankiconnect.py        AnkiConnect's API on 127.0.0.1:8765 for Yomitan and co. (a thread
@@ -49,10 +50,10 @@ directory, `--demo` to build/demo). GSettings: one schema for both builds.
 
 ## Rules
 
-- **Model code has no GTK**: collection.py, scheduler.py, fsrs.py, template.py, search.py,
-  apkg.py, ankiconnect.py, media.py, speech.py, stats.py, days.py, deck_config.py and
-  optimizer.py import GLib/GObject at most, and are tested without a display. Pages and widgets call them; they never reach into
-  widgets.
+- **Model code has no GTK**: collection.py, scheduler.py, fsrs.py, template.py, answers.py,
+  search.py, apkg.py, ankiconnect.py, media.py, speech.py, stats.py, days.py, deck_config.py and
+  optimizer.py import GLib/GObject at most, and are tested without a display. Pages and widgets
+  call them; they never reach into widgets.
 - **Everything undoable**: a change to the collection goes through `Collection.undoable(label)`
   so `app.undo()` (Ctrl+Z) can put it back; a destructive action shows a toast with Undo, not a
   confirmation, except deleting a deck or a note type (an `AdwAlertDialog`).

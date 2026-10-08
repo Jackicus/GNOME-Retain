@@ -61,6 +61,24 @@ template $RetainDeckOptionsDialog: Adw.PreferencesDialog {
     }
 
     Adw.PreferencesGroup {
+      title: _("Studying");
+
+      Adw.ComboRow study_mode_row {
+        title: _("Study Mode");
+        subtitle: _("How each card asks for its answer");
+        use-markup: false;
+
+        model: StringList {
+          strings [
+            _("Flip the Card"),
+            _("Type the Answer"),
+            _("Choose from Options"),
+          ]
+        };
+      }
+    }
+
+    Adw.PreferencesGroup {
       title: _("Memory");
 
       Adw.PreferencesRow retention_row {

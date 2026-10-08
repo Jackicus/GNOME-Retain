@@ -10,7 +10,9 @@
 
 Steps are minutes. `fsrs_parameters` is None for the FSRS-6 defaults, else the 21 fitted
 numbers (optimizer.py). `new_mix` says where new cards go among the day's reviews: mixed in,
-after them, or before them. `leech_action` is 'tag' (the note gets the leech tag) or 'suspend'.
+after them, or before them. `leech_action` is 'tag' (the note gets the leech tag) or
+'suspend'. `study_mode` is how the review page asks: flip the card, type the answer, or
+choose it (answers.py).
 """
 
 import json
@@ -34,6 +36,7 @@ FIELDS = {
     'leech_action': 'tag',
     'maximum_interval': 36500,
     'fsrs_parameters': None,
+    'study_mode': 'flip',  # or 'type', 'choice' (answers.py); Retain's own, not exported
 }
 
 
