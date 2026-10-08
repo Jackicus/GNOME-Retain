@@ -33,13 +33,14 @@ key by which the other structures refer to it: `Note.notetype_id` is a NoteType'
 `Card.note_id` a Note's, `Card.deck_id` a Deck's, `Review.card_id` a Card's. For writing, an
 `original_id` below 10**12 (one of our own ids, not Anki's) or None is replaced by a fresh
 millisecond id made from `created`; the references are resolved before that. Deck names use
-"::" and missing parents are written too; a deck named Default, or with id 1, is Anki's
-Default deck. Cards in a filtered deck come back in their home deck with their home due. A
-review card's `due` is a day number (Anki stores days since the collection's creation day,
-`Package.created`), a learning or relearning card's Unix seconds (Anki's day-learn cards are
-given their day's start), a new card's its position. Anki's buried cards come back unburied
-(`buried` 0). A card's `last_review` comes from the revlog. The revlog's stability and
-difficulty are 0: Anki does not store them.
+"::" and missing parents are written too; a deck's `config` (an Anki dconf dict,
+DeckConfig.to_anki()) is written as its deck configuration, once per configuration id; a
+deck named Default, or with id 1, is Anki's Default deck. Cards in a filtered deck come back
+in their home deck with their home due. A review card's `due` is a day number (Anki stores
+days since the collection's creation day, `Package.created`), a learning or relearning
+card's Unix seconds (Anki's day-learn cards are given their day's start), a new card's its
+position. Anki's buried cards come back unburied (`buried` 0). A card's `last_review` comes
+from the revlog. The revlog's stability and difficulty are 0: Anki does not store them.
 
 Text files. `read_text_rows()` returns the rows of a CSV/TSV file and what its Anki header
 lines (`#separator:tab`, `#html:true`, `#tags column:2`, `#notetype column:1`,
@@ -660,9 +661,9 @@ def _model_json(mid, notetype, now):
     return model
 
 
-def _deck_json(did, name, description, now):
+def _deck_json(did, name, description, now, conf=1):
     return {'id': did, 'name': name, 'mod': now, 'usn': -1, 'desc': description, 'dyn': 0,
-            'collapsed': False, 'browserCollapsed': False, 'conf': 1, 'extendNew': 0,
+            'collapsed': False, 'browserCollapsed': False, 'conf': conf, 'extendNew': 0,
             'extendRev': 0, 'newToday': [0, 0], 'revToday': [0, 0], 'lrnToday': [0, 0],
             'timeToday': [0, 0]}
 
@@ -709,6 +710,20 @@ def write_package(path, notetypes, decks, notes, cards, reviews, media_files,
         model_ids[notetype.original_id] = (mid, notetype)
         models[str(mid)] = _model_json(mid, notetype, now)
 
+    dconf_json = {'1': dict(_DEFAULT_DCONF)}
+    conf_ids = {}  # the configuration's own id -> its id in the package
+
+    def conf_id(config):
+        """A deck's Anki configuration (Deck.config) stored once; its id in the package."""
+        if not isinstance(config, dict):
+            return 1
+        key = config.get('id')
+        if key not in conf_ids:
+            cid = 1 if key in (None, 1) else ids.unique(max(int(key), 2))
+            conf_ids[key] = cid
+            dconf_json[str(cid)] = {**_DEFAULT_DCONF, **config, 'id': cid}
+        return conf_ids[key]
+
     deck_ids, deck_names = {}, {'Default': 1}
     decks_json = {'1': _deck_json(1, 'Default', '', now)}
     for deck in decks:
@@ -718,7 +733,8 @@ def write_package(path, notetypes, decks, notes, cards, reviews, media_files,
             did = ids.make(deck.original_id, now)
         deck_ids[deck.original_id] = did
         deck_names[deck.name] = did
-        decks_json[str(did)] = _deck_json(did, deck.name, deck.description or '', now)
+        decks_json[str(did)] = _deck_json(did, deck.name, deck.description or '', now,
+                                          conf_id(deck.config))
     for name in list(deck_names):
         parts = name.split('::')
         for depth in range(1, len(parts)):
@@ -799,7 +815,7 @@ def write_package(path, notetypes, decks, notes, cards, reviews, media_files,
             db.execute(
                 'INSERT INTO col VALUES (1, ?, ?, ?, 11, 0, 0, 0, ?, ?, ?, ?, ?)',
                 (created, now * 1000, now * 1000, json.dumps(conf), json.dumps(models),
-                 json.dumps(decks_json), json.dumps({'1': _DEFAULT_DCONF}), '{}'))
+                 json.dumps(decks_json), json.dumps(dconf_json), '{}'))
             db.executemany('INSERT INTO notes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                            note_rows)
             db.executemany(

@@ -127,6 +127,31 @@ class PackageExportTest(ExportCase):
                          ['Basic', 'Cloze', 'Vocab'])
         self.assertEqual(len(package.reviews), 2)
 
+    def test_decks_keep_their_presets(self):
+        from retain.deck_config import DeckConfig
+
+        preset = DeckConfig(name='Invented Preset', new_per_day=7, learning_steps=[2, 15],
+                            desired_retention=0.85, load_balancing=False,
+                            easy_days=[1.0, 1.0, 1.0, 1.0, 1.0, 0.5, 0.0])
+        preset = self.collection.add_deck_config(preset)
+        spanish = self.collection.deck_by_name('Languages::Spanish')
+        self.collection.set_deck_config(spanish.id, preset.id)
+        _result, package = self.export()
+        configs = {deck.name: deck.config for deck in package.decks}
+        self.assertEqual(configs['Languages::Spanish']['name'], 'Invented Preset')
+        self.assertEqual(configs['Languages::Spanish']['new']['perDay'], 7)
+        self.assertEqual(configs['Languages']['id'], 1)  # the default preset is Anki's 1
+        with temporary_collection() as other:
+            from retain import importing
+
+            importing.import_package(other, self.path('out.apkg'))
+            imported = other.config_for_deck(other.deck_by_name('Languages::Spanish').id)
+            self.assertEqual((imported.name, imported.new_per_day, imported.learning_steps,
+                              imported.desired_retention, imported.load_balancing,
+                              imported.easy_days),
+                             ('Invented Preset', 7, [2, 15], 0.85, False,
+                              [1.0, 1.0, 1.0, 1.0, 1.0, 0.5, 0.0]))
+
     def test_progress_is_reported_in_order(self):
         calls = []
         exporting.export_package(self.collection, self.path('p.apkg'),
