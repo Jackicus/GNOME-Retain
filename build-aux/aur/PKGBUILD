@@ -3,7 +3,7 @@
 # Maintainer: Jack Tully
 
 pkgname=retain
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc='Flashcards with spaced repetition for GNOME; opens Anki decks'
 arch=('any')
@@ -11,6 +11,8 @@ url='https://github.com/Jackicus/GNOME-Retain'
 license=('GPL-2.0-or-later')
 depends=('python' 'python-gobject' 'gtk4' 'libadwaita' 'webkitgtk-6.0' 'gst-plugins-base'
          'gst-plugins-good' 'glib2' 'hicolor-icon-theme')
+optdepends=('gtksourceview5: highlighting in the card template editor'
+            'speech-dispatcher: Read Aloud')
 makedepends=('meson' 'blueprint-compiler' 'gettext' 'appstream' 'desktop-file-utils')
 checkdepends=('python-gobject')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
