@@ -82,6 +82,23 @@
   </screenshots>
 
   <releases>
+    <release version="0.2.0" date="2026-10-13">
+      <description>
+        <p>
+          Retain now syncs between your computers, lets you build your own note types, and
+          reads cards aloud.
+        </p>
+        <ul>
+          <li>Sync through a folder that Syncthing, Nextcloud or a USB stick keeps the same</li>
+          <li>Manage Note Types: add fields, and edit card templates with a live preview</li>
+          <li>Two new study modes: type the answer, or choose it from options</li>
+          <li>Read Aloud in your system's voices, including Anki's tts cards</li>
+          <li>Yomitan and other card-mining apps add cards through the AnkiConnect API</li>
+          <li>Load balancing spreads reviews evenly, and easy days keep chosen days light</li>
+          <li>Exported decks keep their own options, and a backup is made before each import</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-10-08">
       <description>
         <p>The first release.</p>
