@@ -5,24 +5,25 @@
   <project_license>GPL-2.0-or-later</project_license>
 
   <name>Retain@NAME_SUFFIX@</name>
-  <summary>Flashcards that come back just before you forget</summary>
+  <summary>Memorize anything with flashcards</summary>
   <description>
     <p>
-      Retain is a flashcard app for GNOME. Write a question and an answer, or a sentence
-      with a gap in it, and Retain shows the card again just before you would forget it,
-      using the FSRS algorithm: a few minutes of review a day keeps thousands of facts.
+      Write a question and an answer, or a sentence with a gap in it, and Retain shows the
+      card again just before you would forget it. The FSRS algorithm plans each review, so a
+      few minutes a day keeps thousands of facts.
     </p>
     <p>
-      It opens Anki decks (.apkg files), including the ones shared by other learners, with
-      their pictures, sounds, scheduling and progress, and exports decks Anki can open.
+      Retain opens Anki decks, including the ones other learners share, with their pictures,
+      sounds, scheduling and progress, and exports decks Anki can open.
     </p>
     <ul>
-      <li>Decks, nested as deep as you like, with new, learning and due counts</li>
       <li>Basic, reversed, type-in-the-answer, cloze and image occlusion cards</li>
-      <li>Review with the keyboard: Space to turn the card, 1 to 4 to grade it</li>
-      <li>Undo anything, from a grade to a deleted deck</li>
-      <li>Statistics: a review heatmap, what is due ahead, retention and card counts</li>
-      <li>Search across every card, with Anki's search syntax</li>
+      <li>Study by turning the card, typing the answer, or choosing it from options</li>
+      <li>Your own note types, with a live preview of their card templates</li>
+      <li>Cards read aloud in your system's voices</li>
+      <li>Sync between computers through a folder kept in step by Syncthing or Nextcloud</li>
+      <li>Card-mining apps such as Yomitan add cards through the AnkiConnect API</li>
+      <li>Statistics, search with Anki's syntax, and undo for every change</li>
     </ul>
   </description>
 
@@ -35,12 +36,14 @@
   <url type="bugtracker">https://github.com/Jackicus/GNOME-Retain/issues</url>
   <url type="help">https://github.com/Jackicus/GNOME-Retain/blob/main/docs/user-guide.md</url>
   <url type="vcs-browser">https://github.com/Jackicus/GNOME-Retain</url>
+  <url type="contribute">https://github.com/Jackicus/GNOME-Retain#contributing</url>
 
   <translation type="gettext">retain</translation>
 
   <provides>
     <binary>retain</binary>
     <mediatype>application/x-anki-package</mediatype>
+    <mediatype>application/x-anki-collection-package</mediatype>
   </provides>
 
   <content_rating type="oars-1.1"/>
@@ -61,16 +64,20 @@
 
   <screenshots>
     <screenshot type="default" environment="gnome">
-      <caption>A deck's overview: what is due today, and Study</caption>
-      <image type="source" width="1000" height="720">https://raw.githubusercontent.com/Jackicus/GNOME-Retain/v0.1.0/data/screenshots/deck-light.png</image>
+      <caption>A deck's overview: what is due today, and Study Now</caption>
+      <image type="source" width="1000" height="700">https://raw.githubusercontent.com/Jackicus/GNOME-Retain/v0.2.0/data/screenshots/deck-light.png</image>
     </screenshot>
     <screenshot environment="gnome">
-      <caption>Reviewing a card, the answer shown, the grades below</caption>
-      <image type="source" width="1000" height="720">https://raw.githubusercontent.com/Jackicus/GNOME-Retain/v0.1.0/data/screenshots/review-light.png</image>
+      <caption>Reviewing a card, the answer shown and the four grades below</caption>
+      <image type="source" width="1000" height="700">https://raw.githubusercontent.com/Jackicus/GNOME-Retain/v0.2.0/data/screenshots/review-light.png</image>
     </screenshot>
     <screenshot environment="gnome">
-      <caption>Statistics: the year's reviews as a heatmap, what is due ahead</caption>
-      <image type="source" width="1000" height="720">https://raw.githubusercontent.com/Jackicus/GNOME-Retain/v0.1.0/data/screenshots/stats-dark.png</image>
+      <caption>Every card of a deck in the browser, found with Anki's search syntax</caption>
+      <image type="source" width="1000" height="700">https://raw.githubusercontent.com/Jackicus/GNOME-Retain/v0.2.0/data/screenshots/browse-light.png</image>
+    </screenshot>
+    <screenshot environment="gnome">
+      <caption>Statistics in the dark style: the year's reviews and what is due ahead</caption>
+      <image type="source" width="1000" height="700">https://raw.githubusercontent.com/Jackicus/GNOME-Retain/v0.2.0/data/screenshots/stats-dark.png</image>
     </screenshot>
   </screenshots>
 
