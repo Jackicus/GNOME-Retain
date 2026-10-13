@@ -1,0 +1,50 @@
+{
+  "x-comment": [
+    "Flathub's manifest: the release build of a tagged version (FLATHUB.md).",
+    "network: only so a browser on the host reaches the AnkiConnect API that Retain serves on",
+    "127.0.0.1:8765 when the user turns it on; Retain makes no connections of its own.",
+    "pulseaudio: cards' sounds. speech-dispatcher and the Spiel providers: Read Aloud.",
+    "Files (imports, exports, the sync folder) come through the file chooser portal."
+  ],
+  "id": "io.github.jackicus.Retain",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "51",
+  "sdk": "org.gnome.Sdk",
+  "command": "retain",
+  "finish-args": [
+    "--share=ipc",
+    "--socket=fallback-x11",
+    "--socket=wayland",
+    "--socket=pulseaudio",
+    "--device=dri",
+    "--filesystem=xdg-run/speech-dispatcher:ro",
+    "--talk-name=org.espeak.Speech.Provider",
+    "--talk-name=ai.piper.Speech.Provider",
+    "--share=network"
+  ],
+  "cleanup": [
+    "/include",
+    "/lib/pkgconfig",
+    "/share/pkgconfig",
+    "/share/gir-1.0",
+    "/share/man",
+    "*.la",
+    "*.a"
+  ],
+  "modules": [
+    "python3-speechd.json",
+    "libspiel.json",
+    {
+      "name": "retain",
+      "builddir": true,
+      "buildsystem": "meson",
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/Jackicus/GNOME-Retain.git",
+          "tag": "v0.2.0"
+        }
+      ]
+    }
+  ]
+}

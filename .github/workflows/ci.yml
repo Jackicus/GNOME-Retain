@@ -1,8 +1,10 @@
 # Runs scripts/check.sh (byte-compile, ruff, meson build, unit tests, desktop/metainfo/schema
-# validation) on every push to main and every pull request.
+# validation) on every push to main and every pull request, and builds the development
+# Flatpak.
 #
 # The app needs GTK 4.22 and libadwaita 1.9, which the Ubuntu runner images do not ship, so
-# the job runs in an Arch Linux container, the distribution the app is developed on.
+# check.sh runs in an Arch Linux container, the distribution the app is developed on. The
+# Flatpak builds in Flathub's GNOME image, against the runtime the manifests name.
 name: CI
 
 on:
@@ -78,3 +80,33 @@ jobs:
           name: meson-logs
           path: build/meson-logs/
           if-no-files-found: ignore
+
+  flatpak:
+    name: Flatpak (GNOME 51)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      # flatpak-builder sets up its own sandboxes (bubblewrap) inside the container.
+      options: --privileged
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Lint the manifests
+        # lint-exceptions.json waives appid-url-not-reachable only, until the repository is
+        # renamed to match the app ID (build-aux/flatpak/FLATHUB.md).
+        run: |
+          for manifest in build-aux/flatpak/io.github.jackicus.Retain.Devel.json \
+                          build-aux/flatpak/io.github.jackicus.Retain.json; do
+            flatpak-builder-lint --exceptions \
+              --user-exceptions build-aux/flatpak/lint-exceptions.json manifest "$manifest"
+          done
+
+      - name: Build the development Flatpak
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: build-aux/flatpak/io.github.jackicus.Retain.Devel.json
+          bundle: retain-devel.flatpak
+          cache-key: flatpak-builder-${{ hashFiles('build-aux/flatpak/*.json') }}
+          upload-artifact: true

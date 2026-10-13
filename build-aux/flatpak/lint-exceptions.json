@@ -1,0 +1,8 @@
+{
+  "io.github.jackicus.Retain": {
+    "appid-url-not-reachable": "Until the GitHub repository is renamed from GNOME-Retain to Retain (FLATHUB.md, step 1); then delete this file and the --user-exceptions in ci.yml."
+  },
+  "io.github.jackicus.Retain.Devel": {
+    "appid-url-not-reachable": "As for io.github.jackicus.Retain."
+  }
+}
