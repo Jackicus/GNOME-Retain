@@ -16,7 +16,7 @@ from unittest import mock
 from tests import ROOT  # noqa: F401
 from tests.gtk import wait_for
 from tests.support import add_basic, add_cloze
-from retain import schema, sync
+from retain import exporting, importing, schema, sync
 from retain.collection import Collection, card_key
 from retain.deck_config import DeckConfig
 from retain.scheduler import Scheduler
@@ -271,6 +271,22 @@ class MergeTest(SyncTestCase):
         self.assertSameCollections()
 
 
+    def test_a_device_joining_later_takes_an_edited_stock_type_as_its_own(self):
+        laptop, desktop = self.device('laptop'), self.device('desktop')
+        self.sync_all()
+        basic = laptop.notetype_by_name('Basic')
+        basic.rename_field(0, 'Question')
+        laptop.update_notetype(basic)
+        self.sync('laptop')
+        tablet = self.device('tablet')  # its stock Basic has an id of its own, untouched
+        self.sync_all('laptop', 'desktop', 'tablet')
+        for collection in (laptop, desktop, tablet):
+            self.assertEqual([notetype.name for notetype in collection.notetypes()].count(
+                'Basic'), 1)
+            self.assertEqual(collection.notetype_by_name('Basic').field_names()[0], 'Question')
+        self.assertSameCollections()
+
+
 class DeletionTest(SyncTestCase):
 
     def test_a_deletion_propagates_and_does_not_come_back(self):
@@ -421,6 +437,25 @@ class DeletionTest(SyncTestCase):
         self.assertSameCollections()
 
 
+    def test_a_reimported_note_outlives_its_deletion(self):
+        laptop, desktop = self.device('laptop'), self.device('desktop')
+        deck = laptop.add_deck('Returning')
+        note = add_basic(laptop, deck, 'veintisiete', 'twenty-seven')
+        self.sync_all()
+        package = self.root / 'returning.apkg'
+        exporting.export_package(laptop, str(package), deck_id=deck.id)
+        self.clock.advance(100)
+        laptop.remove_notes([note.id])
+        self.sync_all()
+        self.clock.advance(100)
+        importing.import_package(laptop, str(package))
+        self.assertEqual(laptop.graves('note'), [])
+        self.sync_all()
+        for collection in (laptop, desktop):
+            self.assertIsNotNone(note_by_guid(collection, note.guid))
+        self.assertSameCollections()
+
+
 class MediaTest(SyncTestCase):
 
     def test_media_travels_both_ways(self):
@@ -461,6 +496,33 @@ class MediaTest(SyncTestCase):
             PNG)
         self.sync('laptop')
         self.assertEqual(laptop.media.names(), [])
+
+
+    def test_a_clash_renames_references_written_as_html(self):
+        laptop, desktop = self.device('laptop'), self.device('desktop')
+        (laptop.media.directory / 'a&b.png').write_bytes(PNG)
+        (desktop.media.directory / 'a&b.png').write_bytes(OTHER_PNG)
+        add_basic(laptop, laptop.decks()[0], '<img src="a&amp;b.png">', 'one')
+        theirs = add_basic(desktop, desktop.decks()[0], '<img src="a&amp;b.png">', 'two')
+        self.sync('laptop')
+        self.assertEqual(self.sync('desktop').media_renamed, 1)
+        self.assertEqual(desktop.note(theirs.id).fields[0], '<img src="a&amp;b-2.png">')
+
+    def test_a_clash_that_fails_to_copy_leaves_the_local_file(self):
+        laptop, desktop = self.device('laptop'), self.device('desktop')
+        (laptop.media.directory / 'x.png').write_bytes(PNG)
+        (desktop.media.directory / 'x.png').write_bytes(OTHER_PNG)
+        add_basic(laptop, laptop.decks()[0], '<img src="x.png">', 'one')
+        theirs = add_basic(desktop, desktop.decks()[0], '<img src="x.png">', 'two')
+        self.sync('laptop')
+        with mock.patch('shutil.copyfile', side_effect=OSError('the drive went away')):
+            with self.assertRaises(OSError):
+                self.sync('desktop')
+        self.assertEqual((desktop.media.directory / 'x.png').read_bytes(), OTHER_PNG)
+        self.sync('desktop')
+        field = desktop.note(theirs.id).fields[0]
+        self.assertEqual(field, '<img src="x-2.png">')
+        self.assertEqual((desktop.media.directory / 'x-2.png').read_bytes(), OTHER_PNG)
 
 
 class SnapshotTest(SyncTestCase):
@@ -579,6 +641,15 @@ class RunnerTest(SyncTestCase):
         names = [device['name'] for device in sync.devices(self.folder,
                                                             sync.device_id(laptop))]
         self.assertEqual(names, ['Desk'])
+
+    def test_starting_a_sync_clears_the_undo_stack(self):
+        laptop = self.device('laptop')
+        add_basic(laptop, laptop.decks()[0], 'veintiocho', 'twenty-eight')
+        runner = sync.SyncRunner(FakeSettings(**{'sync-folder': str(self.folder)}), laptop)
+        undoable = []
+        runner.connect('started', lambda _runner: undoable.append(laptop.can_undo()))
+        self.run_until_finished(runner)
+        self.assertEqual(undoable, [False])
 
     def test_a_failure_is_reported_as_a_sentence(self):
         laptop = self.device('laptop')
