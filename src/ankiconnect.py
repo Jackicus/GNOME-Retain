@@ -521,6 +521,7 @@ class Server:
 class _Handler(http.server.BaseHTTPRequestHandler):
     owner = None  # the Server, set on a subclass
     server_version = 'Retain-AnkiConnect'
+    timeout = 10  # a client that stalls mid-request must not keep stop() waiting
 
     def log_message(self, format, *args):
         log.debug('%s %s', self.address_string(), format % args)
@@ -584,11 +585,17 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
 
 def _dispatch_to_main_loop(function, request):
-    """Run function(request) on the main loop and wait for its value."""
+    """Run function(request) on the main loop and wait for its value. A request that times
+    out before it starts never runs, so a client that retries adds no duplicate."""
     done = threading.Event()
+    lock = threading.Lock()
     box = {}
 
     def run():
+        with lock:
+            if box.get('cancelled'):
+                return GLib.SOURCE_REMOVE
+            box['started'] = True
         try:
             box['value'] = function(request)
         except Exception as error:  # noqa: BLE001 - reported to the client
@@ -599,5 +606,9 @@ def _dispatch_to_main_loop(function, request):
 
     GLib.idle_add(run)
     if not done.wait(REPLY_TIMEOUT):
-        raise TimeoutError
+        with lock:
+            if not box.get('started'):
+                box['cancelled'] = True
+                raise TimeoutError
+        done.wait()
     return box['value']

@@ -13,9 +13,13 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from unittest import mock
 
 from tests.support import add_basic, temporary_collection
 
+from gi.repository import GLib
+
+from retain import ankiconnect
 from retain.ankiconnect import Api, Server, host_allowed, origin_allowed
 
 PNG = base64.b64encode(b'\x89PNG\r\n\x1a\n invented picture').decode()
@@ -294,6 +298,16 @@ class ServerTests(unittest.TestCase):
         second = Server(Api(self.collection), port=self.server.port)
         with self.assertRaises(OSError):
             second.start()
+
+    def test_a_request_that_timed_out_never_runs(self):
+        calls = []
+        with mock.patch.object(ankiconnect, 'REPLY_TIMEOUT', 0.05):
+            with self.assertRaises(TimeoutError):
+                ankiconnect._dispatch_to_main_loop(calls.append, {'action': 'addNote'})
+        context = GLib.MainContext.default()
+        while context.pending():
+            context.iteration(False)
+        self.assertEqual(calls, [])
 
 
 if __name__ == '__main__':
