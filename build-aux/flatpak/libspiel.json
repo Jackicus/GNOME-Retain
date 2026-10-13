@@ -1,6 +1,6 @@
 {
   "name": "libspiel",
-  "x-comment": "GNOME's speech synthesis framework; not in the GNOME 50 runtime.",
+  "x-comment": "GNOME's speech synthesis framework; not in the GNOME runtime.",
   "buildsystem": "meson",
   "config-opts": [
     "-Dtests=false",

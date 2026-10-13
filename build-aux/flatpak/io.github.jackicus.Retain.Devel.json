@@ -1,11 +1,11 @@
 {
   "x-comment": [
-    "Development: GNOME Builder or flatpak-builder build the .Devel app from this tree.",
-    "io.github.jackicus.Retain.json is the release manifest (Flathub's), built from a tag."
+    "The development build of this checkout (\"Retain (Development)\"), for GNOME Builder and CI.",
+    "io.github.jackicus.Retain.json is Flathub's: the release build of a tag (FLATHUB.md)."
   ],
   "id": "io.github.jackicus.Retain.Devel",
   "runtime": "org.gnome.Platform",
-  "runtime-version": "50",
+  "runtime-version": "51",
   "sdk": "org.gnome.Sdk",
   "command": "retain",
   "finish-args": [
@@ -23,12 +23,12 @@
     "/include",
     "/lib/pkgconfig",
     "/share/pkgconfig",
+    "/share/gir-1.0",
+    "/share/man",
     "*.la",
     "*.a"
   ],
   "modules": [
-    "blueprint-compiler.json",
-    "python3-zstandard.json",
     "python3-speechd.json",
     "libspiel.json",
     {

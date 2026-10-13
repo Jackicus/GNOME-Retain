@@ -63,11 +63,16 @@ meson setup build --prefix=/usr
 meson install -C build
 ```
 
-On Arch, `build-aux/aur/PKGBUILD` builds a package. To build the Flatpak (the GNOME 50
-runtime, with what it lacks bundled), install `org.flatpak.Builder` from Flathub and run
-`flatpak run org.flatpak.Builder --user --install --force-clean .flatpak/build
-build-aux/flatpak/io.github.jackicus.Retain.Devel.json`. For a look without installing,
-`scripts/run.sh --demo` runs a development build on the invented collection.
+On Arch, `build-aux/aur/PKGBUILD` builds a package. To build the Flatpak on the GNOME 51
+runtime, install `org.flatpak.Builder` from Flathub and run:
+
+```sh
+flatpak run org.flatpak.Builder --user --install --force-clean build/flatpak/build \
+  build-aux/flatpak/io.github.jackicus.Retain.Devel.json
+```
+
+For a look without installing, `scripts/run.sh --demo` runs a development build on an
+invented collection.
 
 Your collection lives in `~/.local/share/retain/`, with backups beside it. Retain can sync it
 between computers through a folder that Syncthing, Nextcloud or similar keeps the same on each;
