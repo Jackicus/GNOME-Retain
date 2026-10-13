@@ -10,6 +10,7 @@
                                     preferences|about|shortcuts|edit|notetypes|
                                     notetype|template]
                           [--search QUERY] [--scroll PX] [--setting KEY=VALUE …]
+                          [--shadow]
 
 Builds nothing itself: run meson install -C build (or scripts/run.sh) first, and run it
 through scripts/headless.sh so the window opens on a private display. The demo collection
@@ -20,7 +21,8 @@ the first deck with cards due), --answer with its answer shown. --dialog opens a
 the page and shoots it (notetypes: Manage Note Types; notetype: the page of the type with
 the most notes; template: its first card template's editor; --scroll then scrolls the
 dialog). --search types a query into the browser. In the narrow layout the shot shows the
-sidebar, or the page when --page is given (--sidebar keeps the sidebar).
+sidebar, or the page when --page is given (--sidebar keeps the sidebar). --shadow draws the
+window's shadow around it, as Flathub wants its screenshots (data/screenshots).
 """
 
 import argparse
@@ -44,12 +46,13 @@ parser.add_argument('--dialog', choices=['add', 'new-deck', 'options', 'custom-s
 parser.add_argument('--search', metavar='QUERY')
 parser.add_argument('--scroll', metavar='PX', type=int, default=0)
 parser.add_argument('--setting', metavar='KEY=VALUE', action='append', default=[])
+parser.add_argument('--shadow', action='store_true')
 args = parser.parse_args()
 width, height = (int(n) for n in args.size.split('x'))
 
 app = harness.make_app('Screenshot', light=args.light, size=(width, height))
 
-from gi.repository import Adw, GLib, Graphene, Gtk  # noqa: E402  (after make_app)
+from gi.repository import Adw, Gdk, GLib, Graphene, Gsk, Gtk  # noqa: E402  (after make_app)
 
 steps = []
 failed = False
@@ -162,6 +165,21 @@ def draw_popovers(window, snapshot):
         snapshot.restore()
 
 
+# Adwaita's window.csd shadow (focused): (blur, spread, alpha) of each layer.
+WINDOW_SHADOW = ((14, 5, 0.15), (5, 2, 0.10))
+WINDOW_RADIUS = 15
+SHADOW_MARGIN = 24
+
+
+def draw_shadow(snapshot, width, height):
+    outline = Gsk.RoundedRect()
+    outline.init_from_rect(Graphene.Rect().init(0, 0, width, height), WINDOW_RADIUS)
+    for blur, spread, alpha in WINDOW_SHADOW:
+        color = Gdk.RGBA()
+        color.alpha = alpha
+        snapshot.append_outset_shadow(outline, color, 0, 0, spread, blur)
+
+
 def shoot():
     global failed
     try:
@@ -185,9 +203,15 @@ def _shoot():
     target = dialog_window(window)
     paintable = Gtk.WidgetPaintable(widget=target)
     snapshot = Gtk.Snapshot()
-    paintable.snapshot(snapshot, target.get_width(), target.get_height())
+    width, height = target.get_width(), target.get_height()
+    viewport = None
+    if args.shadow:
+        draw_shadow(snapshot, width, height)
+        viewport = Graphene.Rect().init(-SHADOW_MARGIN, -SHADOW_MARGIN,
+                                        width + 2 * SHADOW_MARGIN, height + 2 * SHADOW_MARGIN)
+    paintable.snapshot(snapshot, width, height)
     draw_popovers(target, snapshot)
-    texture = target.get_renderer().render_texture(snapshot.to_node(), None)
+    texture = target.get_renderer().render_texture(snapshot.to_node(), viewport)
     texture.save_to_png(args.out)
     print(args.out)
     app.quit()
