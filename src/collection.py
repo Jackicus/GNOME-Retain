@@ -511,6 +511,7 @@ class Collection(GObject.Object):
             self._update('notetypes', notetype.to_row())
             notes = self._notes_of_type(notetype.id)
             with_cards = self._notes_with_cards([note.id for note in notes])
+            old_keys = self._card_keys(with_cards)
             if fields_changed or notetype.sort_field != old.sort_field:
                 for note in notes:
                     self._remember('notes', 'notes', [note.id])
@@ -532,6 +533,11 @@ class Collection(GObject.Object):
                 raise CollectionError(ngettext(
                     'This would leave {n} note without a card.',
                     'This would leave {n} notes without a card.', orphans).format(n=orphans))
+            # A moved template's cards take over other ords: a sync must see the ords they
+            # left as deleted and the ones they took as alive, whatever graves were there.
+            new_keys = self._card_keys(with_cards)
+            self._bury('card', [(key, '') for key in old_keys - new_keys])
+            self._unbury_keys('card', new_keys)
             self._touch('notetypes')
         notetype.mark_stored()
 
@@ -543,6 +549,16 @@ class Collection(GObject.Object):
             found.update(row[0] for row in self.db.execute(
                 f'SELECT DISTINCT note_id FROM cards WHERE note_id IN ({marks})', chunk))
         return found
+
+    def _card_keys(self, note_ids):
+        """The card_key()s of the notes' cards, as a set."""
+        keys = set()
+        for chunk in _chunks(note_ids):
+            marks = ','.join('?' * len(chunk))
+            keys.update(card_key(row[0], row[1]) for row in self.db.execute(
+                'SELECT notes.guid, cards.ord FROM cards JOIN notes ON notes.id = '
+                f'cards.note_id WHERE notes.id IN ({marks})', chunk))
+        return keys
 
     def _carry_cards(self, notetype, notes, template_ords, old_count):
         """Remove the cards of templates deleted and renumber those of templates moved."""
@@ -1239,6 +1255,17 @@ class Collection(GObject.Object):
                 self._open['graves'][(kind, key)] = dict(row) if row else None
             self.db.execute('INSERT OR REPLACE INTO graves (kind, key, name, deleted) '
                             'VALUES (?, ?, ?, ?)', (kind, key, name or '', now))
+
+    def _unbury_keys(self, kind, keys):
+        """Remove the graves of objects that exist again; undo puts them back."""
+        for chunk in _chunks(keys):
+            marks = ','.join('?' * len(chunk))
+            for row in self.db.execute(f'SELECT * FROM graves WHERE kind = ? AND key IN ({marks})',
+                                       [kind] + chunk).fetchall():
+                if self._open is not None:
+                    self._open['graves'].setdefault((kind, row['key']), dict(row))
+                self.db.execute('DELETE FROM graves WHERE kind = ? AND key = ?',
+                                (kind, row['key']))
 
     def _unbury(self, graves):
         """Put the graves table back as it was before an undo step's deletions."""
