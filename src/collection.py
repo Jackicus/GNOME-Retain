@@ -275,10 +275,15 @@ class Collection(GObject.Object):
             if time.time() - existing[-1].stat().st_mtime < BACKUP_INTERVAL:
                 return None
         target = folder / time.strftime('collection-%Y%m%d-%H%M%S.sqlite')
-        backup_db = sqlite3.connect(target)
-        with backup_db:
-            self.db.backup(backup_db)
-        backup_db.close()
+        partial = target.with_name(target.name + '.part')  # never taken for the newest
+        partial.unlink(missing_ok=True)
+        backup_db = sqlite3.connect(partial)
+        try:
+            with backup_db:
+                self.db.backup(backup_db)
+        finally:
+            backup_db.close()
+        os.replace(partial, target)
         for old in sorted(folder.glob('collection-*.sqlite'))[:-BACKUP_COUNT]:
             old.unlink()
         return target

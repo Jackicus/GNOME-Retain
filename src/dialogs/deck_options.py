@@ -521,6 +521,7 @@ class DeckOptionsDialog(Adw.PreferencesDialog):
         self.save()
         rows = self._revlog_rows()
         current = self.config.fsrs_parameters
+        config_id = self.config.id
         day_start_hour = self.collection.day_start_hour
         stop = self._stop
         self._optimizing = True
@@ -542,7 +543,7 @@ class DeckOptionsDialog(Adw.PreferencesDialog):
                 log.exception('optimizing')
                 GLib.idle_add(self._on_optimize_failed, str(error))
             else:
-                GLib.idle_add(self._on_optimized, result)
+                GLib.idle_add(self._on_optimized, result, config_id)
 
         threading.Thread(target=run, name='retain-optimizer', daemon=True).start()
 
@@ -562,13 +563,13 @@ class DeckOptionsDialog(Adw.PreferencesDialog):
                 _('Could not optimize: {error}').format(error=message))
         return GLib.SOURCE_REMOVE
 
-    def _on_optimized(self, result):
+    def _on_optimized(self, result, config_id):
         self._finish_optimizing()
         if self._stop.is_set():
             return GLib.SOURCE_REMOVE  # closed meanwhile: the fit was cut short
         params, before, after = result
-        if self.collection.deck_config(self.config.id) is None:
-            return GLib.SOURCE_REMOVE
+        if self.config.id != config_id or self.collection.deck_config(config_id) is None:
+            return GLib.SOURCE_REMOVE  # the fit was for the preset shown before
         config = self.collect()
         config.fsrs_parameters = list(params)
         self.collection.update_deck_config(config)
