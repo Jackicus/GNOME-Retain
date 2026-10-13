@@ -410,6 +410,7 @@ class _PackageImport:
         done = 0
         _report(self.progress, 0.1, _('Importing notes…'))
         types_by_id = {}
+        added = []
         for chunk in _chunks(pending):
             _check_stop(self.should_stop)
             for action, note, note_id, ords in chunk:
@@ -433,6 +434,7 @@ class _PackageImport:
                                   created=note.created or self.now,
                                   modified=note.modified or self.now)
                     self.collection._store_note(record, notetype, insert=True)
+                    added.append(record.id)
                     self.result.notes_added += 1
                 else:
                     record.fields = fields
@@ -446,8 +448,41 @@ class _PackageImport:
             done += len(chunk)
             _report(self.progress, 0.1 + 0.8 * done / total,
                     _('Importing notes… {done} of {total}').format(done=done, total=total))
+        self._revive(added)
         self.collection._touch('notes')
         self.collection._touch('cards')
+
+    def _revive(self, note_ids):
+        """Notes and cards brought back by the import that a deletion here had left graves
+        for (sync.py): the graves go and the notes and cards are modified now, so that no
+        sync deletes them again, here or on the other devices."""
+        db = self.collection.db
+        if not db.execute('SELECT 1 FROM graves LIMIT 1').fetchone():
+            return
+        for chunk in _chunks(note_ids):
+            marks = ','.join('?' * len(chunk))
+            guids = {row[0]: row[1] for row in db.execute(
+                f'SELECT id, guid FROM notes WHERE id IN ({marks})', chunk)}
+            note_graves = {row[0] for row in db.execute(
+                f'SELECT key FROM graves WHERE kind = ? AND key IN '
+                f'({",".join("?" * len(guids))})', ['note'] + list(guids.values()))}
+            card_keys = self.collection._card_keys(chunk)
+            card_graves = set()
+            for keys in _chunks(sorted(card_keys)):
+                card_graves.update(row[0] for row in db.execute(
+                    f'SELECT key FROM graves WHERE kind = ? AND key IN '
+                    f'({",".join("?" * len(keys))})', ['card'] + keys))
+            revived = [note_id for note_id, guid in guids.items() if guid in note_graves
+                       or any(key.startswith(guid + '\x1f') for key in card_graves)]
+            if not revived:
+                continue
+            self.collection._unbury_keys('note', note_graves)
+            self.collection._unbury_keys('card', card_graves)
+            marks = ','.join('?' * len(revived))
+            db.execute(f'UPDATE notes SET modified = ? WHERE id IN ({marks})',
+                       [self.now] + revived)
+            db.execute(f'UPDATE cards SET modified = ? WHERE note_id IN ({marks})',
+                       [self.now] + revived)
 
     def _import_cards(self, record, notetype, action, package_cards, ords, positions):
         wanted = [card for card in package_cards if card.ord not in ords]

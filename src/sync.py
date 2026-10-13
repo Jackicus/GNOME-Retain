@@ -52,6 +52,7 @@ are compared as they are: a computer whose clock is wrong wins (or loses) every 
 
 import contextlib
 import hashlib
+import html
 import json
 import logging
 import os
@@ -435,13 +436,20 @@ def _sync_media(collection, shared, result, now):
             continue
         new = _free_name(name, taken)
         taken.add(new)
+        # The shared file is copied first, so that a failure leaves the local one in place;
+        # the notes follow the rename straight away.
+        temporary = _temporary(local_dir)
+        try:
+            shutil.copyfile(there, temporary)
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
         os.replace(here, local_dir / new)
+        _replace(temporary, here)
         renames[name] = new
-        _copy_atomic(there, here)
+        _rename_references(collection, {name: new}, now)
         result.media_received += 1
         result.media_renamed += 1
-    if renames:
-        _rename_references(collection, renames, now)
     local = {name for name in store.names() if not _ignored(name)}
     for name in sorted(remote - local):
         _copy_atomic(shared / name, local_dir / name)
@@ -490,15 +498,20 @@ def _free_name(name, taken):
         counter += 1
 
 
+def _like_pattern(text):
+    return '%' + text.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
+
+
 def _rename_references(collection, renames, now):
     """Point the local notes at the renamed local files; the notes are modified now, so the
     new names reach the other devices."""
     with collection.undoable(None):
         types = {}
         for old, new in renames.items():
-            pattern = '%' + old.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
+            patterns = [_like_pattern(old), _like_pattern(html.escape(old))]  # as fields hold it
             rows = collection.db.execute(
-                "SELECT * FROM notes WHERE fields LIKE ? ESCAPE '\\'", (pattern,)).fetchall()
+                "SELECT * FROM notes WHERE fields LIKE ? ESCAPE '\\' OR fields LIKE ? ESCAPE '\\'",
+                patterns).fetchall()
             for row in rows:
                 note = Note.from_row(row)
                 fields = [rename_media_references(field, old, new) for field in note.fields]
@@ -727,7 +740,8 @@ class _Merge:
 
     def _match_notetype(self, row, local, claimed):
         """The local note type a remote one with another id is: the same Anki id, else the
-        same name, kind and field names."""
+        same name, kind and field names, else the same name and kind when one of the two is
+        an untouched stock type."""
         free = [mine for mine in local.values() if mine['id'] not in claimed]
         if row['original_id']:
             for mine in free:
@@ -739,6 +753,13 @@ class _Merge:
             ours = NoteType.from_row(mine)
             if (ours.name.casefold() == theirs.name.casefold() and ours.kind == theirs.kind
                     and [name.casefold() for name in ours.field_names()] == names):
+                return mine
+        # A stock type never edited on one side (modified 0) is the same type as the other
+        # side's edited one of that name, whatever its fields have become.
+        for mine in free:
+            if ((mine['modified'] == 0 or row['modified'] == 0)
+                    and mine['name'].casefold() == row['name'].casefold()
+                    and mine['kind'] == row['kind']):
                 return mine
         return None
 
@@ -1052,9 +1073,10 @@ class SyncRunner(GObject.Object):
     a time: start() while one runs asks for another after it.
 
     Signals: `started`; `progress` (fraction, message); `finished` (the SyncResult or None,
-    the error message or ''). Before `finished`, on success, the main collection's undo
-    stack is cleared (what it would undo may already be on the other devices), its media
-    index refreshed and `changed` emitted for what the sync changed."""
+    the error message or ''). The main collection's undo stack is cleared when a sync starts
+    and again before `finished`: what it would undo may already be on the other devices, and
+    undoing it would put back rows older than the merge. After a sync that changed something
+    (or failed, perhaps partway) the media index is refreshed and `changed` emitted."""
 
     __gtype_name__ = 'RetainSyncRunner'
 
@@ -1090,6 +1112,7 @@ class SyncRunner(GObject.Object):
         self.running = True
         self.again = False
         main = self.collection
+        main.clear_undo()
         self.thread = threading.Thread(
             target=self._work, args=(main.path, main.day_start_hour, folder, self.device_name()),
             name='retain-sync', daemon=True)
@@ -1127,9 +1150,9 @@ class SyncRunner(GObject.Object):
         self.running = False
         self.thread = None
         main = self.collection
-        if result is not None and main.db is not None:
+        if main.db is not None:
             main.clear_undo()
-            if result.changed():
+            if result is None or result.changed():
                 main.media.refresh()
                 for kind in ('configs', 'notetypes', 'decks', 'notes', 'cards'):
                     main.emit('changed', kind)
