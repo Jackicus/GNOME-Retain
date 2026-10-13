@@ -386,6 +386,40 @@ class DeletionTest(SyncTestCase):
             self.assertEqual(collection.deck(card.deck_id).name, 'Default')
         self.assertSameCollections()
 
+    def reversed_note(self):
+        laptop, desktop = self.device('laptop'), self.device('desktop')
+        reversed_type = laptop.notetype_by_name('Basic (and reversed card)')
+        note = laptop.add_note(reversed_type.id, laptop.decks()[0].id, ['veinte', 'twenty'])
+        self.sync_all()
+        return laptop, desktop, note, laptop.notetype(reversed_type.id)
+
+    def test_a_deleted_first_template_keeps_the_second_ones_cards(self):
+        laptop, desktop, note, reversed_type = self.reversed_note()
+        reverse = laptop.cards_of_note(note.id)[1]
+        reversed_type.remove_template(0)
+        laptop.update_notetype(reversed_type)
+        self.assertEqual(laptop.graves('card'), [{'kind': 'card', 'key': card_key(note.guid, 1),
+                                                  'name': '', 'deleted': int(self.clock.now)}])
+        self.sync_all()
+        for collection in (laptop, desktop):
+            cards = collection.cards_of_note(note_by_guid(collection, note.guid).id)
+            self.assertEqual([card.ord for card in cards], [0])
+        self.assertEqual(laptop.cards_of_note(note.id)[0].id, reverse.id)
+        self.assertSameCollections()
+        laptop.undo()
+        self.assertEqual(laptop.graves('card'), [])
+
+    def test_swapped_templates_take_their_cards_along_everywhere(self):
+        laptop, desktop, note, reversed_type = self.reversed_note()
+        Scheduler(laptop).answer(laptop.cards_of_note(note.id)[1], 3, now=self.clock())
+        reversed_type.move_template(1, 0)
+        laptop.update_notetype(reversed_type)
+        self.sync_all()
+        theirs = desktop.cards_of_note(note_by_guid(desktop, note.guid).id)
+        self.assertEqual([card.reps for card in theirs], [1, 0])
+        self.assertEqual(laptop.graves('card'), [])
+        self.assertSameCollections()
+
 
 class MediaTest(SyncTestCase):
 
