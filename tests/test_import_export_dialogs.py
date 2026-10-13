@@ -149,6 +149,26 @@ class ImportPackageTest(DialogCase):
         self.assertTrue(dialog.close_button.get_visible())
         self.assertFalse(dialog.cancel_button.get_visible())
 
+    def test_an_import_is_backed_up_first(self):
+        from retain.dialogs import import_export
+
+        self.collection.add_deck('Before')
+        self.collection.backups = True
+        dialog = import_export.present_import(self.app, self.window, self.write_package())
+        self.addCleanup(dialog.force_close)
+        pump()
+        dialog.start()
+        self.wait_done(dialog)
+        self.collection.backups = False
+        backups = list((self.collection.path.parent / 'backups').iterdir())
+        self.assertEqual(len(backups), 1)
+        backup = Collection(backups[0], backups=False)
+        try:
+            self.assertIsNotNone(backup.deck_by_name('Before'))
+            self.assertIsNone(backup.deck_by_name('Islands'))
+        finally:
+            backup.close()
+
     def test_importing_into_a_deck_nests_the_package_decks(self):
         from retain.dialogs import import_export
 

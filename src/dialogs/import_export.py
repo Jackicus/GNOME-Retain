@@ -315,6 +315,8 @@ class ImportDialog(Adw.Dialog):
         try:
             collection = Collection(main.path, day_start_hour=main.day_start_hour,
                                     backups=False)
+            if main.backups:  # an import clears undo: the backup is the way back
+                collection.backup(force=True)
             if self.kind == 'package':
                 result = importing.import_package(collection, self.path,
                                                   progress=self._progress,
@@ -348,6 +350,7 @@ class ImportDialog(Adw.Dialog):
         collection = self._app.collection
         if not result.stopped:
             collection.clear_undo()
+            collection.media.refresh()  # the import's files, which the thread's store added
             for kind in ('notetypes', 'decks', 'notes', 'cards'):
                 collection.emit('changed', kind)
         sentence = importing.describe_result(result)
