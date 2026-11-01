@@ -76,7 +76,9 @@ class Window(Adw.ApplicationWindow):
         self.settings.set_boolean('window-maximized', self.is_maximized())
         if self._current_key:
             self.settings.set_string('last-page', self._current_key)
-        return False
+        # With automatic sync, the window hides and closes once the sync is done.
+        sync_before_closing = getattr(self.app, 'sync_before_closing', None)
+        return bool(sync_before_closing and sync_before_closing(self))
 
     # -- actions -----------------------------------------------------------------------------
 

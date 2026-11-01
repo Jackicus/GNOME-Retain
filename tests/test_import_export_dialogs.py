@@ -22,15 +22,22 @@ WAIT = 5.0  # seconds a thread's import or export may take under a loaded test r
 
 
 class FakeApp:
-    """What the dialogs ask of the application: the collection, the settings, toasts."""
+    """What the dialogs ask of the application: the collection, the settings, toasts, the
+    sync runner."""
 
     def __init__(self, collection):
         from gi.repository import Gio
 
+        from retain.sync import SyncRunner
+
         self.collection = collection
         self.settings = Gio.Settings.new('io.github.jackicus.Retain')
+        self.sync = SyncRunner(self.settings, collection)
         self.toasts = []
         self.reported = []
+
+    def sync_now(self, quiet=False):
+        return self.sync.start()
 
     def toast(self, text, undo=False, timeout=0):
         self.toasts.append(text)

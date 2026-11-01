@@ -7,6 +7,7 @@
     name = store.add_file('/home/me/cat.jpg')          # 'cat.jpg', or 'cat-2.jpg' if taken
     name = store.add_bytes('0', data, 'paste.png')     # from an import or the clipboard
     store.path(name), store.exists(name), store.names(), store.uri(name)
+    store.refresh()                                   # after another process changed the folder
     store.remove_unused(referenced)                   # a check-media pass
 
 A file already in the folder with the same content (SHA-1) keeps its name: adding it again
@@ -45,6 +46,10 @@ class MediaStore:
 
     def exists(self, name):
         return self.path(name).is_file()
+
+    def refresh(self):
+        """Forget what the folder held: another Collection (a sync, an import) changed it."""
+        self._hashes = None
 
     def names(self):
         return sorted(path.name for path in self.directory.iterdir() if path.is_file())

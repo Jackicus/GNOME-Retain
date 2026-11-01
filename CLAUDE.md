@@ -16,8 +16,9 @@ rules and pointers: a module's API is in its docstring, product decisions and th
 
 ## Architecture
 
-One thread runs GTK; SQLite work is quick enough to run on it. Long work (an import, the FSRS
-optimizer) runs in a thread with a connection of its own and reports through `GLib.idle_add`.
+One thread runs GTK; SQLite work is quick enough to run on it. Long work (an import, a sync,
+the FSRS optimizer) runs in a thread with a connection of its own and reports through
+`GLib.idle_add`.
 
 ```
 Application (main.py)    app.settings, app.collection; app.* actions; app.toast(), app.undo()
@@ -40,6 +41,8 @@ Application (main.py)    app.settings, app.collection; app.* actions; app.toast(
 ├─ speech.py             what Read Aloud says (runs by language) and which voice says it;
 │                        widgets/speech.py speaks (Spiel, else Speech Dispatcher)
 ├─ media.py              the media folder: adding files, naming, references in fields
+├─ sync.py               sync through a shared folder: one snapshot per device, last writer
+│                        wins per object, graves for deletions (SyncRunner: a thread)
 ├─ stats.py              the queries behind Statistics
 ├─ workload.py           load balancing, easy days, the workload simulation (a thread)
 └─ optimizer.py          fits FSRS parameters to the revlog (a thread)
@@ -47,13 +50,15 @@ Application (main.py)    app.settings, app.collection; app.* actions; app.toast(
 
 Data lives in `$XDG_DATA_HOME/retain/` (`collection.sqlite`, `media/`, `backups/`); the .Devel
 build in `retain-devel/`; `RETAIN_DATA_DIR` overrides both (the tests set it to a temporary
-directory, `--demo` to build/demo). GSettings: one schema for both builds.
+directory, `--demo` to build/demo). GSettings: one schema for both builds. A sync folder (the
+`sync-folder` setting, anywhere the user picks) holds `retain-sync.json`, `devices/ID.sqlite`
+and `devices/ID.json` per device, and `media/`; the device id is in the collection's config.
 
 ## Rules
 
 - **Model code has no GTK**: collection.py, scheduler.py, fsrs.py, template.py, answers.py,
   search.py, apkg.py, ankiconnect.py, media.py, speech.py, stats.py, days.py, deck_config.py,
-  workload.py and optimizer.py import GLib/GObject at most, and are tested without a display.
+  workload.py, sync.py and optimizer.py import GLib/GObject at most, and are tested without a display.
   Pages and widgets call them; they never reach into widgets.
 - **Everything undoable**: a change to the collection goes through `Collection.undoable(label)`
   so `app.undo()` (Ctrl+Z) can put it back; a destructive action shows a toast with Undo, not a
