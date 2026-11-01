@@ -8,7 +8,7 @@ collection, Meson, gettext. GPL-2.0-or-later. App ID `io.github.jackicus.Retain`
 core app (one window, pages, the HIG followed), carry Anki's substance (FSRS, note types, cloze,
 image occlusion, .apkg in and out, search syntax, statistics) and drop its clutter.
 
-Developed on GTK 4.22, libadwaita 1.9, Python 3.14 and PyGObject 3.56. The minimums are Python
+Developed on GTK 4.24, libadwaita 1.10, Python 3.14 and PyGObject 3.58. The minimums are Python
 3.12 (`pyproject.toml`) and, in `meson.build`, GTK 4.20, GLib 2.84, libadwaita 1.9, PyGObject
 3.50, Meson 1.2: use no newer API without raising them there and in README.md. This file holds
 rules and pointers: a module's API is in its docstring, product decisions and their reasons in

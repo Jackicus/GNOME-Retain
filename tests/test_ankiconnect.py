@@ -15,6 +15,7 @@ import urllib.error
 import urllib.request
 from unittest import mock
 
+from tests.gtk import iterate
 from tests.support import add_basic, temporary_collection
 
 from gi.repository import GLib
@@ -250,9 +251,7 @@ class ServerTests(unittest.TestCase):
         self.context.__exit__(None, None, None)
 
     def post(self, body, headers=None):
-        from gi.repository import GLib
-
-        url = f'http://127.0.0.1:{self.server.port}'
+        url =f'http://127.0.0.1:{self.server.port}'
         request = urllib.request.Request(url, data=json.dumps(body).encode(), method='POST',
                                          headers={'Content-Type': 'application/json',
                                                   **(headers or {})})
@@ -272,7 +271,7 @@ class ServerTests(unittest.TestCase):
         thread.start()
         deadline = time.monotonic() + 10
         while thread.is_alive() and time.monotonic() < deadline:
-            GLib.MainContext.default().iteration(False)
+            iterate()
             time.sleep(0.005)
         thread.join()
         return box
@@ -306,7 +305,7 @@ class ServerTests(unittest.TestCase):
                 ankiconnect._dispatch_to_main_loop(calls.append, {'action': 'addNote'})
         context = GLib.MainContext.default()
         while context.pending():
-            context.iteration(False)
+            iterate(context)
         self.assertEqual(calls, [])
 
 

@@ -360,3 +360,24 @@ class AddEditTests(unittest.TestCase):
                          Gdk.EVENT_STOP)
         self.assertEqual(self.collection.note_count(), before + 1)
         self.assertTrue(front.is_empty())
+
+
+@requires_gtk
+class PictureFilterTests(unittest.TestCase):
+
+    def test_offers_the_types_a_card_shows_and_not_camera_raw(self):
+        from gi.repository import Gio, Gtk
+        from retain.widgets.util import add_picture_types
+
+        pictures = add_picture_types(Gtk.FileFilter())
+
+        def accepts(content_type):
+            info = Gio.FileInfo()
+            info.set_content_type(content_type)
+            return pictures.match(info)
+
+        for content_type in ('image/png', 'image/jpeg', 'image/gif', 'image/webp',
+                             'image/svg+xml'):
+            self.assertTrue(accepts(content_type), content_type)
+        for content_type in ('image/x-canon-cr2', 'image/heic', 'audio/mpeg'):
+            self.assertFalse(accepts(content_type), content_type)

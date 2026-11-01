@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # SPDX-FileCopyrightText: 2026 Jack Tully
 
-"""What widgets share: connecting a signal without keeping the widget alive.
+"""What widgets share: connecting a signal without keeping the widget alive, and the picture
+types a file chooser offers.
 
     connect_weak(obj, signal, self._method)   # the handler id
+    add_picture_types(file_filter)            # the types a card can show
 
 A widget that can be dropped (a pushed page, a dialog, a row) never connects a child's or an
 owned object's signal to its own bound method directly: the closure holds the widget, the
@@ -30,3 +32,16 @@ def connect_weak(obj, signal, method):
 
     handler = obj.connect(signal, call)
     return handler
+
+
+# The picture types both a card (WebKit, and Anki, which shares the .apkg) and the editor
+# (Gdk.Texture) show. Gtk.FileFilter.add_pixbuf_formats (deprecated in GTK 4.20) offered
+# every gdk-pixbuf loader's type, camera raw and HEIC among them, which no card displays.
+PICTURE_TYPES = ('image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml',
+                 'image/avif', 'image/bmp')
+
+
+def add_picture_types(file_filter):
+    for mime_type in PICTURE_TYPES:
+        file_filter.add_mime_type(mime_type)
+    return file_filter
