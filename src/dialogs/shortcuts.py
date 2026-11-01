@@ -14,7 +14,7 @@ from gettext import gettext as _
 
 from gi.repository import Adw, Gtk
 
-from ..shortcuts import accelerator, sections
+from ..shortcuts import sections
 
 
 def present(parent):
@@ -23,9 +23,9 @@ def present(parent):
     names = {}
     for title, items in sections():
         section = Adw.ShortcutsSection(title=title)
-        for item_title, key in items:
-            section.add(Adw.ShortcutsItem.new(item_title, accelerator(key)))
-            keys = [_key_label(accel) for accel in accelerator(key).split()]
+        for item_title, accels in items:
+            section.add(Adw.ShortcutsItem.new(item_title, accels))
+            keys = [_key_label(accel) for accel in accels.split()]
             if len(keys) > 1:
                 # Translators: a shortcut's alternative keys, as a screen reader hears them:
                 # {keys} is the list but the last ("Menu"), {key} the last ("Shift+F10").

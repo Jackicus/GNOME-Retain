@@ -43,10 +43,10 @@ RESOURCES = (
 _schema_dir = None
 _unavailable = []  # [reason or None], once GTK has been tried
 
-# PyGObject 3.56's MainContext.iteration() asks asyncio's event loop policy for a loop when
-# none is running, which Python 3.14 deprecates (main.use_glib_event_loop() filters the same
-# warning in the app). The unittest runner puts its own filter in front of any a test module
-# sets, so iterate() silences it where it is raised.
+# PyGObject's MainContext.iteration() (3.56 and 3.58) asks asyncio's event loop policy for a
+# loop when none is running, which Python 3.14 deprecates. The app never sees the warning (the
+# default filters hide it outside __main__), but the unittest runner shows it and puts its own
+# filter in front of any a test module sets, so iterate() silences it where it is raised.
 POLICY_WARNING = r"'asyncio\.\w*policy\w*' is deprecated"
 
 

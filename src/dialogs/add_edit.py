@@ -33,7 +33,7 @@ from .. import notetypes, template
 from ..collection import CollectionError
 from ..shortcuts import EDITOR
 from ..widgets.field_editor import FieldEditor, media_kind
-from ..widgets.util import connect_weak
+from ..widgets.util import add_picture_types, connect_weak
 
 log = logging.getLogger(__name__)
 
@@ -245,7 +245,7 @@ class AddEditDialog(Adw.Dialog):
     def _on_choose_image(self, _button):
         dialog = Gtk.FileDialog(title=_('Choose an Image'), modal=True)
         pictures = Gtk.FileFilter(name=_('Pictures'))
-        pictures.add_pixbuf_formats()
+        add_picture_types(pictures)
         dialog.set_default_filter(pictures)
         root = self.get_root()
         ref = self.weak_ref()

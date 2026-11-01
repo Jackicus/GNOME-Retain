@@ -32,7 +32,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
 
 from .. import template
 from . import html_text
-from .util import connect_weak
+from .util import add_picture_types, connect_weak
 
 log = logging.getLogger(__name__)
 
@@ -292,11 +292,11 @@ class FieldEditor(Gtk.Box):
         dialog = Gtk.FileDialog(title=_('Attach a Picture or Sound'), modal=True)
         filters = Gio.ListStore.new(Gtk.FileFilter)
         both = Gtk.FileFilter(name=_('Pictures and Sounds'))
-        both.add_pixbuf_formats()
+        add_picture_types(both)
         both.add_mime_type('audio/*')
         both.add_mime_type('video/*')
         pictures = Gtk.FileFilter(name=_('Pictures'))
-        pictures.add_pixbuf_formats()
+        add_picture_types(pictures)
         sounds = Gtk.FileFilter(name=_('Sounds'))
         sounds.add_mime_type('audio/*')
         sounds.add_mime_type('video/*')

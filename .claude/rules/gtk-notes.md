@@ -8,7 +8,7 @@ paths:
   - "src/dialogs/**"
 ---
 
-# GTK 4.22, libadwaita 1.9 and PyGObject 3.56: behaviour this code depends on
+# GTK 4.22–4.24, libadwaita 1.9–1.10 and PyGObject 3.56–3.58: behaviour this code depends on
 
 Each of these was checked against the toolkit, or found the hard way while building the app.
 
@@ -46,8 +46,8 @@ Each of these was checked against the toolkit, or found the hard way while build
   a user style sheet rebuilt on `notify::dark` (widgets/card_view.py). Without WebKit, or with
   `RETAIN_NO_WEBKIT=1` (CI: bubblewrap cannot start in the container), a Pango label renders
   the card.
-- In headless screenshots the accent colour is green (no Settings portal), so the accent and
-  the success colour look alike there; on a desktop they differ.
+- In headless screenshots the accent colour is libadwaita's default blue (no Settings portal,
+  so never the user's).
 
 ## Lists
 
