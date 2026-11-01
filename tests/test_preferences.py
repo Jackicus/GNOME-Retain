@@ -3,16 +3,19 @@
 
 """dialogs/preferences.py: the switches and spin rows follow and change their settings,
 Back Up Now writes a backup, Check Media counts the unused and missing files and Delete
-Unused removes them. On a stand-in application with a collection on a temporary path and
+Unused removes them, the Sync group follows the sync folder, syncs and lists the other
+devices. On a stand-in application with a collection on a temporary path and
 settings on the memory backend."""
 
+import json
 import os
+import pathlib
 import shutil
 import tempfile
 import unittest
 
 from tests import ROOT  # noqa: F401
-from tests.gtk import pump, requires_gtk
+from tests.gtk import pump, requires_gtk, wait_for
 from tests.support import add_basic
 from tests.test_import_export_dialogs import FakeApp, make_window
 from retain.collection import Collection
@@ -32,7 +35,8 @@ class PreferencesTest(unittest.TestCase):
         self.app = FakeApp(self.collection)
         self.settings = self.app.settings
         for key in ('show-remaining', 'show-intervals', 'auto-play-audio', 'two-button-mode',
-                    'card-text-scale', 'day-start-hour', 'learn-ahead-minutes'):
+                    'card-text-scale', 'day-start-hour', 'learn-ahead-minutes',
+                    'sync-folder', 'sync-automatically', 'sync-device-name'):
             self.settings.reset(key)
         self.window = make_window()
         self.window.present()
@@ -137,6 +141,42 @@ class PreferencesTest(unittest.TestCase):
         dialog.force_close()
         pump()
         self.assertEqual(self.window.dialog_open, [True, False])
+
+    def test_without_a_sync_folder_the_sync_rows_wait(self):
+        dialog = self.present()
+        self.assertEqual(dialog.folder_row.get_subtitle(), 'None chosen')
+        self.assertFalse(dialog.forget_button.get_visible())
+        self.assertFalse(dialog.sync_row.get_sensitive())
+        self.assertFalse(dialog.sync_button.get_sensitive())
+        self.assertFalse(dialog.devices_group.get_visible())
+        self.assertTrue(dialog.auto_row.get_active())
+        self.assertTrue(dialog.device_name_row.get_text())  # the host name, to start with
+
+    def test_choosing_a_folder_syncs_and_lists_the_other_devices(self):
+        folder = pathlib.Path(self.directory) / 'shared'
+        (folder / 'devices').mkdir(parents=True)
+        (folder / 'devices' / 'feedc0de.json').write_text(json.dumps(
+            {'id': 'feedc0de', 'name': 'Invented Laptop', 'synced': 1_780_000_000}))
+        self.settings.set_string('sync-device-name', 'Test Desk')
+        dialog = self.present()
+        self.assertEqual(dialog.sync_row.get_subtitle(), 'Never')
+        dialog.set_folder(folder)
+        self.assertTrue(dialog.sync_spinner.get_visible())
+        self.assertFalse(dialog.sync_button.get_sensitive())
+        self.assertTrue(wait_for(lambda: not self.app.sync.running, timeout=10))
+        pump()
+        self.assertEqual(self.settings.get_string('sync-folder'), str(folder))
+        self.assertFalse(dialog.sync_spinner.get_visible())
+        self.assertTrue(dialog.sync_button.get_sensitive())
+        self.assertNotEqual(dialog.sync_row.get_subtitle(), 'Never')
+        self.assertTrue(dialog.forget_button.get_visible())
+        self.assertEqual([row.get_title() for row in dialog._device_rows], ['Invented Laptop'])
+        own = json.loads(next(path for path in (folder / 'devices').glob('*.json')
+                              if path.stem != 'feedc0de').read_text())
+        self.assertEqual(own['name'], 'Test Desk')
+        dialog.forget_folder()
+        self.assertEqual(dialog.folder_row.get_subtitle(), 'None chosen')
+        self.assertFalse(dialog.devices_group.get_visible())
 
 
 if __name__ == '__main__':
